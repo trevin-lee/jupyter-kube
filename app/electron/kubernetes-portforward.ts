@@ -1,4 +1,5 @@
 import { PodStatus } from './kubernetes-service'
+import { logger } from './logging-service'
 
 export interface PortForwardConfig {
   podName: string
@@ -43,7 +44,7 @@ export class KubernetesPortForwardService {
     try {
       // Prevent concurrent port forwarding attempts
       if (this.portForwardStarting) {
-        console.log(`⏳ Port forwarding already starting for another request, waiting...`)
+        logger.info(`⏳ Port forwarding already starting for another request, waiting...`)
         // Wait for the current attempt to complete
         let waitCount = 0
         while (this.portForwardStarting && waitCount < 30) { // Wait up to 15 seconds
@@ -53,7 +54,7 @@ export class KubernetesPortForwardService {
         
         // If we already have port forwarding running for this pod, return success
         if (this.portForwardStatus === 'running' && this.portForwardConfig?.podName === podName) {
-          console.log(`✅ Port forwarding already active for pod ${podName}`)
+          logger.info(`✅ Port forwarding already active for pod ${podName}`)
           return {
             success: true,
             message: `Port forwarding already active for pod ${podName}`,
@@ -66,9 +67,9 @@ export class KubernetesPortForwardService {
       
       try {
         // Check if pod is ready before starting port forwarding
-        console.log(`🔍 Checking pod readiness before starting port forward for ${podName}`)
+        logger.info(`🔍 Checking pod readiness before starting port forward for ${podName}`)
         const podStatus = await this.getPodStatus(podName)
-        console.log(`📋 Pod ${podName} status: ${podStatus.phase}, ready: ${podStatus.ready}`)
+        logger.info(`📋 Pod ${podName} status: ${podStatus.phase}, ready: ${podStatus.ready}`)
         
         if (podStatus.phase !== 'Running' || !podStatus.ready) {
           return {
@@ -77,7 +78,7 @@ export class KubernetesPortForwardService {
           }
         }
         
-        console.log(`✅ Pod is ready, proceeding with port forward setup`)
+        logger.info(`✅ Pod is ready, proceeding with port forward setup`)
         
         // Clear any existing restart timeout
         if (this.restartTimeout) {
@@ -99,7 +100,7 @@ export class KubernetesPortForwardService {
       }
 
     } catch (error) {
-      console.error('Failed to start port forwarding:', error)
+      logger.error('Failed to start port forwarding:', error)
       this.portForwardStatus = 'error'
       this.portForwardStarting = false
       return {
@@ -114,11 +115,11 @@ export class KubernetesPortForwardService {
    */
   async fastReconnectToPod(podName: string): Promise<PortForwardResult> {
     try {
-      console.log(`🚀 Attempting fast reconnection to existing pod: ${podName}`)
+      logger.info(`🚀 Attempting fast reconnection to existing pod: ${podName}`)
       
       // Super fast path: check if we already have port forwarding running for this pod
       if (this.portForwardStatus === 'running' && this.portForwardConfig?.podName === podName) {
-        console.log(`⚡ Ultra-fast reconnection: port forwarding already active for pod ${podName}!`)
+        logger.info(`⚡ Ultra-fast reconnection: port forwarding already active for pod ${podName}!`)
         return {
           success: true,
           message: `Ultra-fast reconnection: JupyterLab already connected!`,
@@ -136,13 +137,13 @@ export class KubernetesPortForwardService {
         }
       }
       
-      console.log(`✅ Pod ${podName} is healthy, starting port forwarding...`)
+      logger.info(`✅ Pod ${podName} is healthy, starting port forwarding...`)
       
       // Start port forwarding immediately
       const portForwardResult = await this.startPortForward(podName, 8888, 8888)
       
       if (portForwardResult.success) {
-        console.log(`🎉 Fast reconnection successful to pod: ${podName}`)
+        logger.info(`🎉 Fast reconnection successful to pod: ${podName}`)
         return {
           success: true,
           message: `Successfully reconnected to existing JupyterLab pod: ${podName}`,
@@ -156,7 +157,7 @@ export class KubernetesPortForwardService {
       }
       
     } catch (error: any) {
-      console.error(`❌ Fast reconnection failed for pod ${podName}:`, error)
+      logger.error(`❌ Fast reconnection failed for pod ${podName}:`, error)
       return {
         success: false,
         message: `Fast reconnection failed: ${error.message}`
@@ -166,7 +167,7 @@ export class KubernetesPortForwardService {
 
   async stopPortForward(): Promise<PortForwardResult> {
     try {
-      console.log('🛑 Stopping port forwarding...')
+      logger.info('🛑 Stopping port forwarding...')
       
       // Disable auto-restart and clear any pending restarts
       this.autoRestartEnabled = false
@@ -195,7 +196,7 @@ export class KubernetesPortForwardService {
       }
 
     } catch (error) {
-      console.error('Failed to stop port forwarding:', error)
+      logger.error('Failed to stop port forwarding:', error)
       return {
         success: false,
         message: `Failed to stop port forwarding: ${error}`
@@ -230,7 +231,7 @@ export class KubernetesPortForwardService {
       await this._killPortForwardProcess()
     }
 
-    console.log(`🔌 Starting port forward for pod ${podName}: localhost:${localPort} -> ${remotePort} (attempt ${this.portForwardRestartCount + 1})`)
+    logger.info(`🔌 Starting port forward for pod ${podName}: localhost:${localPort} -> ${remotePort} (attempt ${this.portForwardRestartCount + 1})`)
     this.portForwardStatus = 'starting'
 
     const { spawn } = require('child_process')
@@ -260,7 +261,7 @@ export class KubernetesPortForwardService {
 
       this.portForwardProcess.stdout.on('data', (data: Buffer) => {
         const output = data.toString()
-        console.log(`📡 Port forward stdout: ${output.trim()}`)
+        logger.info(`📡 Port forward stdout: ${output.trim()}`)
         
         if (output.includes('Forwarding from') && !hasResolved) {
           hasResolved = true
@@ -277,11 +278,11 @@ export class KubernetesPortForwardService {
 
       this.portForwardProcess.stderr.on('data', (data: Buffer) => {
         const error = data.toString()
-        console.error(`❌ Port forward stderr: ${error.trim()}`)
+        logger.error(`❌ Port forward stderr: ${error.trim()}`)
         
         // Handle specific network namespace errors (indicates pod is terminating/restarting)
         if (error.includes('network namespace for sandbox') && error.includes('is closed')) {
-          console.log(`⚠️ Pod network namespace is closed - pod may be terminating or restarting`)
+          logger.warn(`⚠️ Pod network namespace is closed - pod may be terminating or restarting`)
           // Don't fail immediately for namespace errors - let auto-restart handle it
           return
         }
@@ -304,7 +305,7 @@ export class KubernetesPortForwardService {
       })
 
       this.portForwardProcess.on('close', (code: number | null) => {
-        console.log(`🔌 Port forward process closed with code ${code}`)
+        logger.info(`🔌 Port forward process closed with code ${code}`)
         this.portForwardStatus = 'stopped'
         this.portForwardProcess = null
         
@@ -318,7 +319,7 @@ export class KubernetesPortForwardService {
           
           this.restartInProgress = true
           this.portForwardRestartCount++
-          console.log(`🔄 Auto-restarting port forward in ${this.restartDelay}ms (attempt ${this.portForwardRestartCount}/${this.maxRestartAttempts})`)
+          logger.info(`🔄 Auto-restarting port forward in ${this.restartDelay}ms (attempt ${this.portForwardRestartCount}/${this.maxRestartAttempts})`)
           
           this.restartTimeout = setTimeout(async () => {
             if (this.autoRestartEnabled && this.portForwardConfig && this.restartInProgress) {
@@ -326,38 +327,38 @@ export class KubernetesPortForwardService {
                 // Check if pod exists and is ready before attempting port forward
                 try {
                   const podStatus = await this.getPodStatus(this.portForwardConfig.podName)
-                  console.log(`📋 Pod readiness check: ${this.portForwardConfig.podName} status=${podStatus.phase}, ready=${podStatus.ready}`)
+                  logger.info(`📋 Pod readiness check: ${this.portForwardConfig.podName} status=${podStatus.phase}, ready=${podStatus.ready}`)
                   
                   if (podStatus.phase !== 'Running' || !podStatus.ready) {
-                    console.log(`⏳ Pod not ready yet (${podStatus.phase}), skipping auto-restart for now`)
+                    logger.warn(`⏳ Pod not ready yet (${podStatus.phase}), skipping auto-restart for now`)
                     this.restartInProgress = false
                     // Don't restart if pod isn't ready - let the main deployment flow handle it
                     return
                   }
                 } catch (podError: any) {
                   if (podError.code === 404 || podError.response?.status === 404 || podError.message?.includes('not found')) {
-                    console.log(`⚠️ Pod ${this.portForwardConfig.podName} no longer exists, stopping auto-restart`)
+                    logger.warn(`⚠️ Pod ${this.portForwardConfig.podName} no longer exists, stopping auto-restart`)
                     this.autoRestartEnabled = false
                     this.restartInProgress = false
                     return
                   } else {
-                    console.error(`❌ Failed to check pod status during auto-restart:`, podError)
+                    logger.error(`❌ Failed to check pod status during auto-restart:`, podError)
                     this.restartInProgress = false
                     return
                   }
                 }
                 
-                console.log(`✅ Pod is ready, proceeding with port forward restart (attempt ${this.portForwardRestartCount}/${this.maxRestartAttempts})`)
+                logger.info(`✅ Pod is ready, proceeding with port forward restart (attempt ${this.portForwardRestartCount}/${this.maxRestartAttempts})`)
                 
                 // Give extra time for port cleanup on subsequent attempts
                 const extraDelay = this.portForwardRestartCount * 2000 // 2s, 4s, 6s...
                 if (extraDelay > 0) {
-                  console.log(`⏳ Adding ${extraDelay}ms extra delay for attempt ${this.portForwardRestartCount}`)
+                  logger.info(`⏳ Adding ${extraDelay}ms extra delay for attempt ${this.portForwardRestartCount}`)
                   await new Promise(resolve => setTimeout(resolve, extraDelay))
                 }
                 await this._startPortForwardProcess()
               } catch (error) {
-                console.error('Failed to auto-restart port forwarding:', error)
+                logger.error('Failed to auto-restart port forwarding:', error)
               } finally {
                 this.restartInProgress = false
               }
@@ -366,7 +367,7 @@ export class KubernetesPortForwardService {
             }
           }, this.restartDelay)
         } else if (this.portForwardRestartCount >= this.maxRestartAttempts) {
-          console.error(`❌ Port forwarding failed after ${this.maxRestartAttempts} restart attempts`)
+          logger.error(`❌ Port forwarding failed after ${this.maxRestartAttempts} restart attempts`)
           this.portForwardStatus = 'error'
           this.restartInProgress = false
         } else {
@@ -375,7 +376,7 @@ export class KubernetesPortForwardService {
       })
 
       this.portForwardProcess.on('error', (error: Error) => {
-        console.error(`❌ Port forward process error: ${error.message}`)
+        logger.error(`❌ Port forward process error: ${error.message}`)
         
         if (!hasResolved) {
           hasResolved = true
@@ -423,9 +424,9 @@ export class KubernetesPortForwardService {
       await new Promise<void>((resolve) => {
         exec(command, (error: any, stdout: string, stderr: string) => {
           if (error && !error.message.includes('No such process')) {
-            console.log(`⚠️ Error killing port-forward processes: ${error.message}`)
+            logger.warn(`⚠️ Error killing port-forward processes: ${error.message}`)
           } else {
-            console.log(`🧹 Cleaned up any existing port-forward processes`)
+            logger.info(`🧹 Cleaned up any existing port-forward processes`)
           }
           resolve()
         })
@@ -435,7 +436,7 @@ export class KubernetesPortForwardService {
       await new Promise(resolve => setTimeout(resolve, 2000))
       
     } catch (error) {
-      console.log(`⚠️ Could not clean up port-forward processes: ${error}`)
+      logger.warn(`⚠️ Could not clean up port-forward processes: ${error}`)
     }
   }
 

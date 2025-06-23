@@ -3,9 +3,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Loader2, CheckCircle, XCircle, AlertCircle, ArrowLeft, Server, Rocket } from 'lucide-react'
-  import { AppConfig, PodStatus } from '../types/app'
-  import { kubernetesService, DeploymentProgress } from '../api/kubernetes-service'
-  import { getGpuDisplayName } from '../api/utils'
+import { AppConfig, PodStatus } from '../types/app'
+import { kubernetesService, DeploymentProgress } from '../api/kubernetes-service'
+import { getGpuDisplayName } from '../api/utils'
+import logger from '../api/logger'
 
 interface LoadingPageProps {
   config: AppConfig
@@ -53,12 +54,12 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
   // Main deployment effect
   useEffect(() => {
     // Debug: Log what's available in the window object
-    console.log('🔍 Debug - Window object keys:', Object.keys(window))
-    console.log('🔍 Debug - electronAPI available:', !!window.electronAPI)
+    logger.info('🔍 Debug - Window object keys:', Object.keys(window))
+    logger.info('🔍 Debug - electronAPI available:', !!window.electronAPI)
     if (window.electronAPI) {
-      console.log('🔍 Debug - electronAPI keys:', Object.keys(window.electronAPI))
+      logger.info('🔍 Debug - electronAPI keys:', Object.keys(window.electronAPI))
       if (window.electronAPI.kubernetes) {
-        console.log('🔍 Debug - kubernetes keys:', Object.keys(window.electronAPI.kubernetes))
+        logger.info('🔍 Debug - kubernetes keys:', Object.keys(window.electronAPI.kubernetes))
       }
     }
     
@@ -67,13 +68,13 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
         // Check deployment status and reset if needed
         const deploymentStatus = kubernetesService.getDeploymentStatus()
         if (deploymentStatus.isDeploying) {
-          console.log('⚠️ Previous deployment state detected, resetting...')
+          logger.warn('⚠️ Previous deployment state detected, resetting...')
           await kubernetesService.stopCurrentDeployment()
         }
         
         // Use the new IPC-based deployment with progress tracking
         const result = await kubernetesService.deployWithProgress(config, (progress: DeploymentProgress) => {
-          console.log(`📊 Progress update: ${progress.phase} - ${progress.progress}% - ${progress.message}`)
+          logger.info(`📊 Progress update: ${progress.phase} - ${progress.progress}% - ${progress.message}`)
           
           setPhase(progress.phase)
           setProgress(progress.message)
@@ -113,7 +114,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
         
       } catch (deployError) {
         cleanup()
-        console.error('❌ Deployment error:', deployError)
+        logger.error('❌ Deployment error:', deployError)
         setPhase('error')
         // Don't reset progress on error - keep current progress to avoid jumping backwards
         const errorMessage = deployError instanceof Error ? deployError.message : 'Unknown deployment error'

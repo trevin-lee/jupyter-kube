@@ -17,5 +17,6 @@
     "preload.ts",
     "kubernetes-service.ts",
     "config.ts",
+    "logging-service.ts"
   ]
 } 

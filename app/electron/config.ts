@@ -1,5 +1,6 @@
 import Store from 'electron-store'
 import { AppConfig } from '../src/types/app'
+import { logger } from './logging-service'
 
 // Define the store schema type
 type StoreType = AppConfig & {
@@ -220,7 +221,7 @@ export class ConfigService {
     
     for (const migration of migrations) {
       if (this.isVersionGreater(migration.version, currentVersion)) {
-        console.log(`Running migration to version ${migration.version}`)
+        logger.info(`Running migration to version ${migration.version}`)
         const config = this.getConfig()
         const migratedConfig = migration.migrate(config)
         this.setConfig(migratedConfig)

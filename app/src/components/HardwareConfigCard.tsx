@@ -8,6 +8,7 @@ import { Settings, Cpu, HardDrive, Zap, Database, Plus, Trash2 } from 'lucide-re
 import { HardwareConfig, PvcConfig } from '../types/app'
 import { Button } from "./ui/button"
 import { requiresReservation } from '../api/utils'
+import logger from '../api/logger'
 
 interface HardwareConfigCardProps {
   config: HardwareConfig
@@ -36,37 +37,37 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
 
   // Initialize memory state from config when component mounts or config changes
   useEffect(() => {
-    console.log('💾 Initializing memory from config.memory:', config.memory)
+    logger.info('💾 Initializing memory from config.memory:', config.memory)
     const { amount, unit } = parseMemory(config.memory)
-    console.log('💾 Parsed memory - Amount:', amount, 'Unit:', unit)
+    logger.info('💾 Parsed memory - Amount:', amount, 'Unit:', unit)
     setMemoryAmount(amount)
     setMemoryUnit(unit)
   }, [config.memory])
 
   // Track GPU config changes
   useEffect(() => {
-    console.log('🎮 GPU config changed - gpu:', config.gpu, 'gpuCount:', config.gpuCount)
+    logger.info('🎮 GPU config changed - gpu:', config.gpu, 'gpuCount:', config.gpuCount)
   }, [config.gpu, config.gpuCount])
 
   const handleMemoryChange = (amount: string, unit: string) => {
-    console.log('💾 Memory change - Amount:', amount, 'Unit:', unit)
+    logger.info('💾 Memory change - Amount:', amount, 'Unit:', unit)
     setMemoryAmount(amount)
     setMemoryUnit(unit)
     const memoryValue = amount ? `${amount}${unit}` : ''
-    console.log('💾 Memory value set to:', memoryValue)
+    logger.info('💾 Memory value set to:', memoryValue)
     onConfigChange('memory', memoryValue)
   }
 
   const handleGpuChange = (gpuType: string) => {
-    console.log('🎮 GPU selection changed to:', gpuType)
-    console.log('🎮 Current config.gpu before change:', config.gpu)
+    logger.info('🎮 GPU selection changed to:', gpuType)
+    logger.info('🎮 Current config.gpu before change:', config.gpu)
     onConfigChange('gpu', gpuType)
     onConfigChange('gpuCount', gpuType === 'none' ? 0 : Math.max(1, config.gpuCount))
-    console.log('🎮 GPU config updated - Type:', gpuType, 'Count:', gpuType === 'none' ? 0 : Math.max(1, config.gpuCount))
+    logger.info('🎮 GPU config updated - Type:', gpuType, 'Count:', gpuType === 'none' ? 0 : Math.max(1, config.gpuCount))
     
     // Check the value after a brief delay to see if it updates
     setTimeout(() => {
-      console.log('🎮 Config.gpu value after 100ms:', config.gpu)
+      logger.info('🎮 Config.gpu value after 100ms:', config.gpu)
     }, 100)
   }
 
@@ -88,7 +89,7 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
   }
 
   // Debug GPU rendering
-  console.log('🎮 Rendering Select with config.gpu:', config.gpu)
+  logger.info('🎮 Rendering Select with config.gpu:', config.gpu)
 
   return (
     <Card>

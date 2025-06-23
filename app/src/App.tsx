@@ -3,6 +3,7 @@ import ConfigurationsPage from './pages/configurations'
 import LoadingPage from './pages/loading'
 import JupyterLabPage from './pages/jupyterlab'
 import { AppConfig, PodStatus } from './types/app'
+import logger from './api/logger'
 
 type AppPage = 'configurations' | 'loading' | 'jupyterlab'
 
@@ -16,16 +17,16 @@ const App: React.FC = () => {
   const [resetDeployState, setResetDeployState] = useState<boolean>(false)
 
   const handleDeploy = (config: AppConfig) => {
-    console.log('🚀 Starting deployment with config:', config)
+    logger.info('🚀 Starting deployment with config:', config)
     setDeployConfig(config)
     setCurrentPage('loading')
     setError('')
   }
 
   const handleDeploySuccess = (deployedPodName: string, status: PodStatus, deployedJupyterUrl?: string) => {
-    console.log('✅ Deployment successful! Pod:', deployedPodName)
+    logger.info('✅ Deployment successful! Pod:', deployedPodName)
     if (deployedJupyterUrl) {
-      console.log('🔗 JupyterLab URL:', deployedJupyterUrl)
+      logger.info('🔗 JupyterLab URL:', deployedJupyterUrl)
     }
     setPodName(deployedPodName)
     setPodStatus(status)
@@ -36,14 +37,14 @@ const App: React.FC = () => {
   }
 
   const handleDeployError = (errorMessage: string) => {
-    console.error('❌ Deployment failed:', errorMessage)
+    logger.error('❌ Deployment failed:', errorMessage)
     setError(errorMessage)
     // Stay on loading page to show error, or optionally go back to config
     // setCurrentPage('configurations')
   }
 
   const handleBackToConfig = () => {
-    console.log('🔙 Going back to configuration')
+    logger.info('🔙 Going back to configuration')
     setCurrentPage('configurations')
     setError('')
     setResetDeployState(true)
@@ -59,7 +60,7 @@ const App: React.FC = () => {
       
       case 'loading':
         if (!deployConfig) {
-          console.error('❌ No deploy config available, returning to configurations')
+          logger.error('❌ No deploy config available, returning to configurations')
           setCurrentPage('configurations')
           return <ConfigurationsPage onDeploy={handleDeploy} resetDeployState={resetDeployState} />
         }
@@ -74,7 +75,7 @@ const App: React.FC = () => {
       
       case 'jupyterlab':
         if (!podName || !podStatus) {
-          console.error('❌ No pod info available, returning to configurations')
+          logger.error('❌ No pod info available, returning to configurations')
           setCurrentPage('configurations')
           return <ConfigurationsPage onDeploy={handleDeploy} resetDeployState={resetDeployState} />
         }

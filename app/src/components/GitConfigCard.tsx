@@ -17,6 +17,7 @@ import {
   detectSSHKeysElectron,
   extractSSHKeyTag
 } from '../api/git-config'
+import logger from '../api/logger'
 
 interface GitConfigCardProps {
   gitConfig: GitConfig
@@ -42,23 +43,23 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
     setIsScanningGit(true)
     
     try {
-      console.log('🔍 Scanning for Git credentials...')
+      logger.info('🔍 Scanning for Git credentials...')
       await new Promise(resolve => setTimeout(resolve, 300))
       
       const globalConfig = await getGitGlobalConfigElectron()
       
       if (globalConfig.username || globalConfig.email) {
-        console.log('✅ Git credentials detected:', globalConfig)
+        logger.info('✅ Git credentials detected:', globalConfig)
         onGitConfigChange({
           ...gitConfig,
           username: globalConfig.username || gitConfig.username,
           email: globalConfig.email || gitConfig.email
         })
       } else {
-        console.log('⚠️ No Git credentials found in global config')
+        logger.warn('⚠️ No Git credentials found in global config')
       }
     } catch (error) {
-      console.error('❌ Git credentials detection failed:', error)
+      logger.error('❌ Git credentials detection failed:', error)
     }
     
     setIsScanningGit(false)
@@ -70,7 +71,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
     setIsScanningSSH(true)
     
     try {
-      console.log('🔍 Scanning for SSH keys...')
+      logger.info('🔍 Scanning for SSH keys...')
       await new Promise(resolve => setTimeout(resolve, 500))
       
       // Reset SSH key state
@@ -81,7 +82,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
       const sshKeys = await detectSSHKeysElectron()
       const availableKeys = getAllSSHKeys(sshKeys)
       
-      console.log('🔍 SSH keys found:', availableKeys.length)
+      logger.info('🔍 SSH keys found:', availableKeys.length)
       setAvailableSSHKeys(availableKeys)
       
       if (availableKeys.length > 0) {
@@ -97,13 +98,13 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
             sshKeyContent: defaultKey.content,
             sshKeyTag: defaultKey.tag || ''
           })
-          console.log('✅ Default SSH key selected:', defaultKey.path, 'with tag:', defaultKey.tag)
+          logger.info('✅ Default SSH key selected:', defaultKey.path, 'with tag:', defaultKey.tag)
         }
       } else {
-        console.log('⚠️ No SSH keys found')
+        logger.warn('⚠️ No SSH keys found')
       }
     } catch (error) {
-      console.error('❌ SSH key detection failed:', error)
+      logger.error('❌ SSH key detection failed:', error)
     }
     
     setSshKeyChecked(true)
@@ -147,7 +148,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
           sshKeyTag: keyTag
         })
       } catch (error) {
-        console.error('Failed to read selected SSH key:', error)
+        logger.error('Failed to read selected SSH key:', error)
       }
     }
   }
@@ -193,7 +194,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
         setSshKeyChecked(true)
       }
     } catch (error) {
-      console.error('Failed to select SSH key:', error)
+      logger.error('Failed to select SSH key:', error)
       // Fallback to file input for browser or if Electron API fails
       sshKeyInputRef.current?.click()
     }
@@ -279,7 +280,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
 
   // Update states when gitConfig changes (from loaded config or user input)
   useEffect(() => {
-    console.log('🔑 GitConfigCard: gitConfig changed, sshKeyPath:', gitConfig.sshKeyPath)
+    logger.info('🔑 GitConfigCard: gitConfig changed, sshKeyPath:', gitConfig.sshKeyPath)
     
     setSshKeyFound(!!gitConfig.sshKeyPath)
     setSshKeyChecked(true) // Mark as checked since we have config data
@@ -291,7 +292,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
       // If we have an SSH key but no availableSSHKeys, populate it
       // This handles the case where SSH key was auto-detected by config service
       if (availableSSHKeys.length === 0) {
-        console.log('🔑 GitConfigCard: Populating availableSSHKeys from auto-detected key')
+        logger.info('🔑 GitConfigCard: Populating availableSSHKeys from auto-detected key')
         
         // Use the saved SSH key tag if available, otherwise extract from content or use filename
         let keyTag = gitConfig.sshKeyTag || gitConfig.sshKeyPath.split('/').pop() || 'SSH Key'
@@ -304,11 +305,11 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
               keyTag = extractedTag
             }
           } catch (error) {
-            console.log('Could not extract SSH key tag:', error)
+            logger.warn('Could not extract SSH key tag:', error)
           }
         }
         
-        console.log('🏷️ Using SSH key tag:', keyTag, '(saved:', !!gitConfig.sshKeyTag, 'extracted:', !gitConfig.sshKeyTag && !!gitConfig.sshKeyContent, ')')
+        logger.info('🏷️ Using SSH key tag:', keyTag, '(saved:', !!gitConfig.sshKeyTag, 'extracted:', !gitConfig.sshKeyTag && !!gitConfig.sshKeyContent, ')')
         
         const autoDetectedKey: SSHKeyInfo = {
           path: gitConfig.sshKeyPath,

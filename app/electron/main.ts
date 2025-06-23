@@ -2,6 +2,7 @@ import { app, BrowserWindow, ipcMain, dialog } from 'electron';
 import * as path from 'path';
 import { configService } from './config';
 import { kubernetesMainService } from './kubernetes-service';
+import { logger } from './logging-service';
 
 const isDev = process.env.IS_DEV === 'true';
 
@@ -53,23 +54,28 @@ async function createWindow(): Promise<void> {
     for (const port of tryPorts) {
       try {
         await mainWindow.loadURL(`http://localhost:${port}`);
-        console.log(`Successfully loaded from port ${port}`);
+        logger.info(`Successfully loaded from port ${port}`);
         loaded = true;
         break;
       } catch (err) {
-        console.log(`Port ${port} not available, trying next...`);
+        logger.warn(`Port ${port} not available, trying next...`);
       }
     }
     
     if (!loaded) {
-      console.error('Failed to load development URL from any port');
+      logger.error('Failed to load development URL from any port');
     }
   } else {
     mainWindow.loadFile(path.join(__dirname, '../dist/index.html')).catch((err) => {
-      console.error('Failed to load production file:', err);
+      logger.error('Failed to load production file:', err);
     });
   }
 }
+
+// Logging IPC handler
+ipcMain.on('log', (_, level: 'info' | 'warn' | 'error' | 'debug', ...args) => {
+  logger.logFromRenderer(level, ...args);
+});
 
 // IPC handlers
 ipcMain.handle('dialog:openFile', async () => {
@@ -110,7 +116,7 @@ ipcMain.handle('git:getGlobalConfig', async () => {
     
     return { username, email };
   } catch (error) {
-    console.error('Error reading git config:', error);
+    logger.error('Error reading git config:', error);
     return {};
   }
 });
@@ -258,7 +264,7 @@ ipcMain.handle('config:getConfig', async () => {
   try {
     return configService.getConfig();
   } catch (error) {
-    console.error('Error getting config:', error);
+    logger.error('Error getting config:', error);
     throw error;
   }
 });
@@ -268,7 +274,7 @@ ipcMain.handle('config:setConfig', async (_, config) => {
     configService.setConfig(config);
     return true;
   } catch (error) {
-    console.error('Error setting config:', error);
+    logger.error('Error setting config:', error);
     throw error;
   }
 });
@@ -277,7 +283,7 @@ ipcMain.handle('config:getSection', async (_, section) => {
   try {
     return configService.getSection(section);
   } catch (error) {
-    console.error('Error getting config section:', error);
+    logger.error('Error getting config section:', error);
     throw error;
   }
 });
@@ -287,7 +293,7 @@ ipcMain.handle('config:setSection', async (_, section, value) => {
     configService.setSection(section, value);
     return true;
   } catch (error) {
-    console.error('Error setting config section:', error);
+    logger.error('Error setting config section:', error);
     throw error;
   }
 });
@@ -296,7 +302,7 @@ ipcMain.handle('config:getValue', async (_, section, key) => {
   try {
     return configService.getValue(section, key);
   } catch (error) {
-    console.error('Error getting config value:', error);
+    logger.error('Error getting config value:', error);
     throw error;
   }
 });
@@ -306,7 +312,7 @@ ipcMain.handle('config:setValue', async (_, section, key, value) => {
     configService.setValue(section, key, value);
     return true;
   } catch (error) {
-    console.error('Error setting config value:', error);
+    logger.error('Error setting config value:', error);
     throw error;
   }
 });
@@ -316,7 +322,7 @@ ipcMain.handle('config:reset', async () => {
     configService.reset();
     return true;
   } catch (error) {
-    console.error('Error resetting config:', error);
+    logger.error('Error resetting config:', error);
     throw error;
   }
 });
@@ -326,7 +332,7 @@ ipcMain.handle('config:resetSection', async (_, section) => {
     configService.resetSection(section);
     return true;
   } catch (error) {
-    console.error('Error resetting config section:', error);
+    logger.error('Error resetting config section:', error);
     throw error;
   }
 });
@@ -335,7 +341,7 @@ ipcMain.handle('config:hasConfig', async () => {
   try {
     return configService.hasConfig();
   } catch (error) {
-    console.error('Error checking config existence:', error);
+    logger.error('Error checking config existence:', error);
     throw error;
   }
 });
@@ -344,7 +350,7 @@ ipcMain.handle('config:getConfigPath', async () => {
   try {
     return configService.getConfigPath();
   } catch (error) {
-    console.error('Error getting config path:', error);
+    logger.error('Error getting config path:', error);
     throw error;
   }
 });
@@ -353,7 +359,7 @@ ipcMain.handle('config:exportConfig', async () => {
   try {
     return configService.exportConfig();
   } catch (error) {
-    console.error('Error exporting config:', error);
+    logger.error('Error exporting config:', error);
     throw error;
   }
 });
@@ -363,7 +369,7 @@ ipcMain.handle('config:importConfig', async (_, configJson) => {
     configService.importConfig(configJson);
     return true;
   } catch (error) {
-    console.error('Error importing config:', error);
+    logger.error('Error importing config:', error);
     throw error;
   }
 });
@@ -372,7 +378,7 @@ ipcMain.handle('config:validateConfig', async (_, config) => {
   try {
     return configService.validateConfig(config);
   } catch (error) {
-    console.error('Error validating config:', error);
+    logger.error('Error validating config:', error);
     throw error;
   }
 });
@@ -381,7 +387,7 @@ ipcMain.handle('config:getConfigSummary', async () => {
   try {
     return configService.getConfigSummary();
   } catch (error) {
-    console.error('Error getting config summary:', error);
+    logger.error('Error getting config summary:', error);
     throw error;
   }
 });
@@ -391,7 +397,7 @@ ipcMain.handle('kubernetes:validateConnection', async (_, kubeConfigPath) => {
   try {
     return await kubernetesMainService.validateConnection(kubeConfigPath);
   } catch (error) {
-    console.error('Error validating Kubernetes connection:', error);
+    logger.error('Error validating Kubernetes connection:', error);
     throw error;
   }
 });
@@ -401,7 +407,7 @@ ipcMain.handle('kubernetes:deploySecrets', async (_, config) => {
     await kubernetesMainService.deploySecrets(config);
     return true;
   } catch (error) {
-    console.error('Error deploying secrets:', error);
+    logger.error('Error deploying secrets:', error);
     throw error;
   }
 });
@@ -410,7 +416,7 @@ ipcMain.handle('kubernetes:createJupyterLabPod', async (_, config) => {
   try {
     return await kubernetesMainService.createJupyterLabPod(config);
   } catch (error) {
-    console.error('Error creating JupyterLab pod:', error);
+    logger.error('Error creating JupyterLab pod:', error);
     throw error;
   }
 });
@@ -419,7 +425,7 @@ ipcMain.handle('kubernetes:getPodStatus', async (_, podName) => {
   try {
     return await kubernetesMainService.getPodStatus(podName);
   } catch (error) {
-    console.error('Error getting pod status:', error);
+    logger.error('Error getting pod status:', error);
     throw error;
   }
 });
@@ -428,7 +434,7 @@ ipcMain.handle('kubernetes:waitForPodReady', async (_, podName, timeoutMs) => {
   try {
     return await kubernetesMainService.waitForPodReady(podName, timeoutMs);
   } catch (error) {
-    console.error('Error waiting for pod ready:', error);
+    logger.error('Error waiting for pod ready:', error);
     throw error;
   }
 });
@@ -437,7 +443,7 @@ ipcMain.handle('kubernetes:deployJupyterLab', async (_, config) => {
   try {
     return await kubernetesMainService.deployJupyterLab(config);
   } catch (error) {
-    console.error('Error deploying JupyterLab:', error);
+    logger.error('Error deploying JupyterLab:', error);
     throw error;
   }
 });
@@ -447,7 +453,7 @@ ipcMain.handle('kubernetes:cleanupJupyterLab', async (_, podName) => {
     await kubernetesMainService.cleanupJupyterLab(podName);
     return true;
   } catch (error) {
-    console.error('Error cleaning up JupyterLab:', error);
+    logger.error('Error cleaning up JupyterLab:', error);
     throw error;
   }
 });
@@ -456,7 +462,7 @@ ipcMain.handle('kubernetes:listAvailableNamespaces', async () => {
   try {
     return await kubernetesMainService.listAvailableNamespaces();
   } catch (error) {
-    console.error('Error listing namespaces:', error);
+    logger.error('Error listing namespaces:', error);
     throw error;
   }
 });
@@ -465,7 +471,7 @@ ipcMain.handle('kubernetes:detectDefaultNamespace', async () => {
   try {
     return await kubernetesMainService.detectDefaultNamespace();
   } catch (error) {
-    console.error('Error detecting default namespace:', error);
+    logger.error('Error detecting default namespace:', error);
     throw error;
   }
 });
@@ -474,7 +480,7 @@ ipcMain.handle('kubernetes:validateNamespace', async (_, namespace) => {
   try {
     return await kubernetesMainService.validateNamespace(namespace);
   } catch (error) {
-    console.error('Error validating namespace:', error);
+    logger.error('Error validating namespace:', error);
     throw error;
   }
 });
@@ -484,7 +490,7 @@ ipcMain.handle('kubernetes:startPortForward', async (_, podName, localPort, remo
   try {
     return await kubernetesMainService.startPortForward(podName, localPort, remotePort);
   } catch (error) {
-    console.error('Error starting port forwarding:', error);
+    logger.error('Error starting port forwarding:', error);
     throw error;
   }
 });
@@ -493,7 +499,7 @@ ipcMain.handle('kubernetes:stopPortForward', async () => {
   try {
     return await kubernetesMainService.stopPortForward();
   } catch (error) {
-    console.error('Error stopping port forwarding:', error);
+    logger.error('Error stopping port forwarding:', error);
     throw error;
   }
 });
@@ -502,7 +508,7 @@ ipcMain.handle('kubernetes:getPortForwardStatus', async () => {
   try {
     return kubernetesMainService.getPortForwardStatus();
   } catch (error) {
-    console.error('Error getting port forward status:', error);
+    logger.error('Error getting port forward status:', error);
     throw error;
   }
 });
@@ -511,7 +517,7 @@ ipcMain.handle('kubernetes:fastReconnectToPod', async (_, podName) => {
   try {
     return await kubernetesMainService.fastReconnectToPod(podName);
   } catch (error) {
-    console.error('Error in fast reconnection:', error);
+    logger.error('Error in fast reconnection:', error);
     throw error;
   }
 });
@@ -557,11 +563,11 @@ app.on('web-contents-created', (event, contents) => {
   contents.setWindowOpenHandler(({ url }) => {
     // Allow opening JupyterLab localhost URLs
     if (url.startsWith('http://localhost:8888') || url.startsWith('http://127.0.0.1:8888')) {
-      console.log('Allowing JupyterLab window creation to:', url);
+      logger.info('Allowing JupyterLab window creation to:', url);
       return { action: 'allow' };
     }
     
-    console.log('Blocked new window creation to:', url);
+    logger.warn('Blocked new window creation to:', url);
     return { action: 'deny' };
   });
 });

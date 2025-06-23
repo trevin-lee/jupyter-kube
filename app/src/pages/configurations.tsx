@@ -9,6 +9,7 @@ import { HardwareConfigCard } from '../components/HardwareConfigCard'
 import { EnvironmentConfigCard } from '../components/EnvironmentConfigCard'
 import { GitConfigCard } from '../components/GitConfigCard'
 import { configService } from '../api/app-config'
+import logger from '../api/logger'
 
 interface ConfigurationsPageProps {
   onDeploy: (config: AppConfig) => void
@@ -25,12 +26,12 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
   useEffect(() => {
     const loadConfig = async () => {
       try {
-        console.log('Loading configuration with auto-detection...')
+        logger.info('Loading configuration with auto-detection...')
         const configWithAutoDetection = await configService.getConfigWithAutoDetection()
         setConfig(configWithAutoDetection)
-        console.log('Configuration loaded successfully')
+        logger.info('Configuration loaded successfully')
       } catch (error) {
-        console.error('Failed to load configuration:', error)
+        logger.error('Failed to load configuration:', error)
         // Set default config if loading fails - must match complete AppConfig structure
         setConfig({
           hardware: {
@@ -104,7 +105,7 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
   const handleHardwareConfigChange = (field: string, value: string | number | PvcConfig[]) => {
     if (!config) return
     
-    console.log('🔧 Hardware config change - Field:', field, 'Value:', value)
+    logger.info('🔧 Hardware config change - Field:', field, 'Value:', value)
     
     setConfig(prevConfig => {
       if (!prevConfig) return prevConfig
@@ -114,7 +115,7 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
         hardware: { ...prevConfig.hardware, [field]: value }
       }
       
-      console.log('🔧 Updated config:', updatedConfig.hardware)
+      logger.info('🔧 Updated config:', updatedConfig.hardware)
       
       // Auto-save with the updated config
       configService.autoSave(updatedConfig)
@@ -152,7 +153,7 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
 
   const isFormValid = () => {
     if (!config) {
-      console.log('❌ Form invalid: No config')
+      logger.warn('❌ Form invalid: No config')
       return false
     }
     
@@ -160,7 +161,7 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
     const memoryValid = config.hardware.memory && config.hardware.memory.trim() !== ''
     const gpuValid = config.hardware.gpu === 'none' || config.hardware.gpuCount > 0
     
-    console.log('🔍 Form validation:', {
+    logger.info('🔍 Form validation:', {
       cpu: cpuValid ? config.hardware.cpu : 'MISSING',
       memory: memoryValid ? config.hardware.memory : 'MISSING', 
       gpu: gpuValid ? `${config.hardware.gpu} (${config.hardware.gpuCount})` : 'INVALID',
@@ -173,21 +174,21 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
   const handleDeploy = () => {
     // Prevent multiple deployments
     if (isDeploying) {
-      console.log('⚠️ Deployment already in progress, ignoring click')
+      logger.warn('⚠️ Deployment already in progress, ignoring click')
       return
     }
     
-    console.log('🚀 Deploy button clicked!')
-    console.log('📋 Config:', config)
-    console.log('✅ Form valid:', isFormValid())
+    logger.info('🚀 Deploy button clicked!')
+    logger.info('📋 Config:', config)
+    logger.info('✅ Form valid:', isFormValid())
     
     if (!config) {
-      console.error('❌ No config available')
+      logger.error('❌ No config available')
       return
     }
     
     if (!isFormValid()) {
-      console.error('❌ Form validation failed')
+      logger.error('❌ Form validation failed')
       return
     }
     
@@ -202,16 +203,16 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
       }
     }
     
-    console.log('🎯 Final deploy config:', deployConfig)
-    console.log('📞 Calling onDeploy function...')
+    logger.info('🎯 Final deploy config:', deployConfig)
+    logger.info('📞 Calling onDeploy function...')
     
     try {
       onDeploy(deployConfig)
-      console.log('✅ onDeploy called successfully')
+      logger.info('✅ onDeploy called successfully')
       // Note: isDeploying will be reset when the user navigates back to this page
       // or when the deployment completes
     } catch (error) {
-      console.error('❌ Error calling onDeploy:', error)
+      logger.error('❌ Error calling onDeploy:', error)
       setIsDeploying(false) // Reset on error
     }
   }

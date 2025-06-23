@@ -2,6 +2,7 @@
 // This avoids importing Node.js modules in the browser environment
 
 import { PodStatus } from '../types/app'
+import logger from './logger'
 
 interface ElectronAPI {
   kubeconfig: {
@@ -68,9 +69,9 @@ export class KubernetesService {
       throw new Error('Kubernetes API not available - main process handlers may not be registered')
     }
     
-    console.log('✅ Electron API available:', Object.keys(window.electronAPI))
-    console.log('🔍 Kubernetes API methods:', Object.keys(window.electronAPI.kubernetes))
-    console.log('🔍 Port forwarding methods available:', {
+    logger.info('✅ Electron API available:', Object.keys(window.electronAPI))
+    logger.info('🔍 Kubernetes API methods:', Object.keys(window.electronAPI.kubernetes))
+    logger.info('🔍 Port forwarding methods available:', {
       startPortForward: typeof window.electronAPI.kubernetes.startPortForward,
       stopPortForward: typeof window.electronAPI.kubernetes.stopPortForward,
       getPortForwardStatus: typeof window.electronAPI.kubernetes.getPortForwardStatus
@@ -189,7 +190,7 @@ export class KubernetesService {
         currentProgress = newProgress
         lastProgressUpdate = { phase, progress: newProgress, message }
         
-        console.log(`📊 Progress: ${currentProgress}% [${phase}] ${message}`)
+        logger.info(`📊 Progress: ${currentProgress}% [${phase}] ${message}`)
         onProgress?.({
           phase,
           progress: currentProgress,
@@ -409,9 +410,9 @@ export class KubernetesService {
       // Stop port forwarding first
       try {
         const portResult = await this.stopPortForward()
-        console.log('🛑 Port forwarding stopped:', portResult.message)
+        logger.info('🛑 Port forwarding stopped:', portResult.message)
       } catch (error) {
-        console.warn('⚠️ Failed to stop port forwarding:', error)
+        logger.warn('⚠️ Failed to stop port forwarding:', error)
       }
       
       // Clean up current pod if exists
@@ -422,13 +423,13 @@ export class KubernetesService {
             success: true, 
             message: `Successfully stopped deployment and cleaned up pod: ${this.currentPodName}` 
           }
-          console.log(`🧹 Cleaned up pod: ${this.currentPodName}`)
+          logger.info(`🧹 Cleaned up pod: ${this.currentPodName}`)
         } catch (error) {
           cleanupResult = { 
             success: false, 
             message: `Failed to cleanup pod ${this.currentPodName}: ${error}` 
           }
-          console.error('❌ Failed to cleanup pod:', error)
+          logger.error('❌ Failed to cleanup pod:', error)
         }
         this.currentPodName = null
       }
@@ -438,7 +439,7 @@ export class KubernetesService {
       
       return cleanupResult
     } catch (error) {
-      console.error('❌ Failed to stop deployment:', error)
+      logger.error('❌ Failed to stop deployment:', error)
       return { 
         success: false, 
         message: `Failed to stop deployment: ${error}` 

@@ -6,6 +6,7 @@ import { Label } from "./ui/label"
 import { FolderOpen, Upload, RefreshCw, X, Search, AlertCircle, Loader2 } from 'lucide-react'
 import { KubernetesConfig } from '../types/app'
 import { kubernetesService } from '../api/kubernetes-service'
+import logger from '../api/logger'
 // import { loadDefaultKubeConfig } from '../api/kubernetes-config' // Moved to Electron main process
 
 interface KubernetesConfigCardProps {
@@ -40,7 +41,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     setIsScanning(true)
     
     try {
-      console.log('🔍 Manual kubeconfig detection requested...')
+      logger.info('🔍 Manual kubeconfig detection requested...')
       
       // Reset state
       setKubeConfigChecked(false)
@@ -48,19 +49,19 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       
       // Call the Electron API to detect kubeconfig
       const detection = await window.electronAPI.kubeconfig.detect()
-      console.log('🔍 Detection result:', detection)
+      logger.info('🔍 Detection result:', detection)
       
       if (detection && detection.found && detection.path) {
         onConfigChange('kubeConfigPath', detection.path)
         setKubeConfigFound(true)
-        console.log('✅ Kubeconfig detected and set:', detection.path)
+        logger.info('✅ Kubeconfig detected and set:', detection.path)
       } else {
         onConfigChange('kubeConfigPath', '')
         setKubeConfigFound(false)
-        console.log('❌ No kubeconfig found')
+        logger.error('❌ No kubeconfig found')
       }
     } catch (error) {
-      console.error('❌ Kubeconfig detection failed:', error)
+      logger.error('❌ Kubeconfig detection failed:', error)
       onConfigChange('kubeConfigPath', '')
       setKubeConfigFound(false)
     }
@@ -115,7 +116,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   // Detect namespace when kubeconfig is available
   const handleDetectNamespace = async () => {
     if (!config.kubeConfigPath) {
-      console.log('No kubeconfig path available for namespace detection')
+      logger.warn('No kubeconfig path available for namespace detection')
       return
     }
     
@@ -130,9 +131,9 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
         onConfigChange('namespace', result.defaultNamespace)
       }
       
-      console.log('🔍 Namespace detection result:', result)
+      logger.info('🔍 Namespace detection result:', result)
     } catch (error) {
-      console.error('Failed to detect namespace:', error)
+      logger.error('Failed to detect namespace:', error)
     } finally {
       setIsDetectingNamespace(false)
     }
@@ -187,7 +188,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   // Validate namespace when both kubeconfig and namespace are loaded (e.g., from persistent storage)
   useEffect(() => {
     if (config.kubeConfigPath && config.namespace && !namespaceValidation.isValidating) {
-      console.log('🔍 Auto-validating namespace loaded from storage:', config.namespace)
+      logger.info('🔍 Auto-validating namespace loaded from storage:', config.namespace)
       handleValidateNamespace(config.namespace)
     }
   }, [config.kubeConfigPath, config.namespace])

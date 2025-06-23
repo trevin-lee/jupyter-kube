@@ -20,6 +20,14 @@ contextBridge.exposeInMainWorld('electronAPI', {
     detect: () => ipcRenderer.invoke('kubeconfig:detect'),
   },
   
+  // Logger APIs
+  logger: {
+    info: (...args: any[]) => ipcRenderer.send('log', 'info', ...args),
+    warn: (...args: any[]) => ipcRenderer.send('log', 'warn', ...args),
+    error: (...args: any[]) => ipcRenderer.send('log', 'error', ...args),
+    debug: (...args: any[]) => ipcRenderer.send('log', 'debug', ...args),
+  },
+  
   // Configuration APIs
   config: {
     getConfig: () => ipcRenderer.invoke('config:getConfig'),

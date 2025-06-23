@@ -1,5 +1,6 @@
 import { AppConfig } from '../types/app'
 import { extractSSHKeyTag } from './git-config'
+import logger from './logger'
 
 export class AppConfigManager {
   private get isElectron(): boolean {
@@ -12,16 +13,16 @@ export class AppConfigManager {
 
   // Get the complete configuration
   async getConfig(): Promise<AppConfig> {
-    console.log('🔍 Getting config, isElectron:', this.isElectron)
+    logger.info('🔍 Getting config, isElectron:', this.isElectron)
     
     if (this.isElectron) {
       try {
         const config = await window.electronAPI.config.getConfig()
-        console.log('📁 Loaded config from Electron. Type:', typeof config, 'Keys:', Object.keys(config || {}))
-        console.log('📁 Hardware section:', config?.hardware)
+        logger.info('📁 Loaded config from Electron. Type:', typeof config, 'Keys:', Object.keys(config || {}))
+        logger.info('📁 Hardware section:', config?.hardware)
         return config
       } catch (error) {
-        console.error('❌ Failed to get config from Electron:', error)
+        logger.error('❌ Failed to get config from Electron:', error)
         throw error
       }
     } else {
@@ -30,39 +31,39 @@ export class AppConfigManager {
       if (stored) {
         try {
           const config = JSON.parse(stored)
-          console.log('📁 Loaded config from localStorage:', config)
+          logger.info('📁 Loaded config from localStorage:', config)
           return config
         } catch (error) {
-          console.error('Failed to parse config from localStorage:', error)
+          logger.error('Failed to parse config from localStorage:', error)
         }
       }
       // Return default config if nothing stored
-      console.log('🆕 Using default config')
+      logger.info('🆕 Using default config')
       return this.getDefaultConfig()
     }
   }
 
   // Save the complete configuration
   async setConfig(config: AppConfig): Promise<boolean> {
-    console.log('💾 Saving config:', config)
+    logger.info('💾 Saving config:', config)
     
     if (this.isElectron) {
       try {
         const result = await window.electronAPI.config.setConfig(config)
-        console.log('✅ Config saved to Electron successfully')
+        logger.info('✅ Config saved to Electron successfully')
         return result
       } catch (error) {
-        console.error('❌ Failed to set config in Electron:', error)
+        logger.error('❌ Failed to set config in Electron:', error)
         throw error
       }
     } else {
       // Fallback to localStorage for browser mode
       try {
         localStorage.setItem(this.getLocalStorageKey('config'), JSON.stringify(config))
-        console.log('✅ Config saved to localStorage successfully')
+        logger.info('✅ Config saved to localStorage successfully')
         return true
       } catch (error) {
-        console.error('Failed to save config to localStorage:', error)
+        logger.error('Failed to save config to localStorage:', error)
         return false
       }
     }
@@ -74,7 +75,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.getSection(section)
       } catch (error) {
-        console.error(`Failed to get section ${section}:`, error)
+        logger.error(`Failed to get section ${section}:`, error)
         throw error
       }
     } else {
@@ -89,7 +90,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.setSection(section, value)
       } catch (error) {
-        console.error(`Failed to set section ${section}:`, error)
+        logger.error(`Failed to set section ${section}:`, error)
         throw error
       }
     } else {
@@ -108,7 +109,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.getValue(section, key as string)
       } catch (error) {
-        console.error(`Failed to get value ${section}.${String(key)}:`, error)
+        logger.error(`Failed to get value ${section}.${String(key)}:`, error)
         throw error
       }
     } else {
@@ -127,7 +128,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.setValue(section, key as string, value)
       } catch (error) {
-        console.error(`Failed to set value ${section}.${String(key)}:`, error)
+        logger.error(`Failed to set value ${section}.${String(key)}:`, error)
         throw error
       }
     } else {
@@ -143,7 +144,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.reset()
       } catch (error) {
-        console.error('Failed to reset config:', error)
+        logger.error('Failed to reset config:', error)
         throw error
       }
     } else {
@@ -158,7 +159,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.resetSection(section)
       } catch (error) {
-        console.error(`Failed to reset section ${section}:`, error)
+        logger.error(`Failed to reset section ${section}:`, error)
         throw error
       }
     } else {
@@ -174,15 +175,15 @@ export class AppConfigManager {
     if (this.isElectron) {
       try {
         const hasConfig = await window.electronAPI.config.hasConfig()
-        console.log('🔍 hasConfig() result:', hasConfig)
+        logger.info('🔍 hasConfig() result:', hasConfig)
         return hasConfig
       } catch (error) {
-        console.error('Failed to check config existence:', error)
+        logger.error('Failed to check config existence:', error)
         return false
       }
     } else {
       const hasLocalConfig = localStorage.getItem(this.getLocalStorageKey('config')) !== null
-      console.log('🔍 hasConfig() localStorage result:', hasLocalConfig)
+      logger.info('🔍 hasConfig() localStorage result:', hasLocalConfig)
       return hasLocalConfig
     }
   }
@@ -193,7 +194,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.getConfigPath()
       } catch (error) {
-        console.error('Failed to get config path:', error)
+        logger.error('Failed to get config path:', error)
         return null
       }
     } else {
@@ -207,7 +208,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.exportConfig()
       } catch (error) {
-        console.error('Failed to export config:', error)
+        logger.error('Failed to export config:', error)
         throw error
       }
     } else {
@@ -222,7 +223,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.importConfig(configJson)
       } catch (error) {
-        console.error('Failed to import config:', error)
+        logger.error('Failed to import config:', error)
         throw error
       }
     } else {
@@ -230,7 +231,7 @@ export class AppConfigManager {
         const config = JSON.parse(configJson)
         return await this.setConfig(config)
       } catch (error) {
-        console.error('Failed to parse imported config:', error)
+        logger.error('Failed to parse imported config:', error)
         return false
       }
     }
@@ -242,7 +243,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.validateConfig(config)
       } catch (error) {
-        console.error('Failed to validate config:', error)
+        logger.error('Failed to validate config:', error)
         return { valid: false, errors: ['Validation failed'] }
       }
     } else {
@@ -269,7 +270,7 @@ export class AppConfigManager {
       try {
         return await window.electronAPI.config.getConfigSummary()
       } catch (error) {
-        console.error('Failed to get config summary:', error)
+        logger.error('Failed to get config summary:', error)
         throw error
       }
     } else {
@@ -322,52 +323,52 @@ Configuration Summary:
   private saveTimeout: NodeJS.Timeout | null = null
   
   async autoSave(config: AppConfig, delay: number = 1000): Promise<void> {
-    console.log(`⏱️ Auto-save scheduled in ${delay}ms...`)
+    logger.info(`⏱️ Auto-save scheduled in ${delay}ms...`)
     
     if (this.saveTimeout) {
       clearTimeout(this.saveTimeout)
-      console.log('🔄 Cleared previous auto-save timer')
+      logger.info('🔄 Cleared previous auto-save timer')
     }
     
     this.saveTimeout = setTimeout(async () => {
       try {
-        console.log('🚀 Executing auto-save...')
+        logger.info('🚀 Executing auto-save...')
         await this.setConfig(config)
-        console.log('✅ Configuration auto-saved successfully')
+        logger.info('✅ Configuration auto-saved successfully')
       } catch (error) {
-        console.error('❌ Auto-save failed:', error)
+        logger.error('❌ Auto-save failed:', error)
       }
     }, delay)
   }
 
   // Load configuration with smart auto-detection
   async getConfigWithAutoDetection(): Promise<AppConfig> {
-    console.log('🧠 Starting smart auto-detection...')
+    logger.info('🧠 Starting smart auto-detection...')
     
     // First, load any existing saved configuration
     let config = await this.getConfig()
-    console.log('📋 Base config loaded:', JSON.stringify(config, null, 2))
+    logger.info('📋 Base config loaded:', JSON.stringify(config, null, 2))
     
     // Normalize GPU configuration (fix inconsistent states)
     if (config.hardware.gpu === 'none' && config.hardware.gpuCount > 0) {
-      console.log('🔧 Normalizing GPU config: Setting gpuCount to 0 for "none" GPU type')
+      logger.info('🔧 Normalizing GPU config: Setting gpuCount to 0 for "none" GPU type')
       config.hardware.gpuCount = 0
     }
     
     // Check if this is a completely fresh install (no config exists)
     const hasExistingConfig = await this.hasConfig()
-    console.log('📁 Has existing config:', hasExistingConfig)
+    logger.info('📁 Has existing config:', hasExistingConfig)
     
     if (!hasExistingConfig) {
-      console.log('🆕 Fresh install detected, will run full auto-detection')
+      logger.info('🆕 Fresh install detected, will run full auto-detection')
     } else {
-      console.log('👤 Existing config found, checking what needs auto-detection...')
-      console.log('🔍 Saved values - Git username:', config.git.username || '(empty)')
-      console.log('🔍 Saved values - Git email:', config.git.email || '(empty)')
-      console.log('🔍 Saved values - SSH key:', config.git.sshKeyPath || '(empty)')
-      console.log('🔍 Saved values - Kubeconfig:', config.kubernetes.kubeConfigPath || '(empty)')
-      console.log('🔍 Saved values - CPU:', config.hardware.cpu || '(empty)')
-      console.log('🔍 Saved values - Memory:', config.hardware.memory || '(empty)')
+      logger.info('👤 Existing config found, checking what needs auto-detection...')
+      logger.info('🔍 Saved values - Git username:', config.git.username || '(empty)')
+      logger.info('🔍 Saved values - Git email:', config.git.email || '(empty)')
+      logger.info('🔍 Saved values - SSH key:', config.git.sshKeyPath || '(empty)')
+      logger.info('🔍 Saved values - Kubeconfig:', config.kubernetes.kubeConfigPath || '(empty)')
+      logger.info('🔍 Saved values - CPU:', config.hardware.cpu || '(empty)')
+      logger.info('🔍 Saved values - Memory:', config.hardware.memory || '(empty)')
     }
     
     // Track if we have user-entered changes that should be saved
@@ -378,28 +379,28 @@ Configuration Summary:
       try {
         // Auto-detect git configuration only if not already saved
         if (!config.git.username || !config.git.email) {
-          console.log('🔎 Auto-detecting git configuration... (missing saved values)')
+          logger.info('🔎 Auto-detecting git configuration... (missing saved values)')
           const globalConfig = await window.electronAPI.git.getGlobalConfig()
-          console.log('🔎 Found global git config:', globalConfig)
+          logger.info('🔎 Found global git config:', globalConfig)
           if (globalConfig) {
             const oldUsername = config.git.username
             const oldEmail = config.git.email
             config.git.username = config.git.username || globalConfig.username || ''
             config.git.email = config.git.email || globalConfig.email || ''
-            console.log('🔄 Git config updated:', {oldUsername, newUsername: config.git.username, oldEmail, newEmail: config.git.email})
+            logger.info('🔄 Git config updated:', {oldUsername, newUsername: config.git.username, oldEmail, newEmail: config.git.email})
             hasUserChanges = true // Git credentials are user data, should be saved
           }
         } else {
-          console.log('✅ Git configuration already saved, skipping auto-detection')
-          console.log('   Username:', config.git.username, 'Email:', config.git.email)
+          logger.info('✅ Git configuration already saved, skipping auto-detection')
+          logger.info('   Username:', config.git.username, 'Email:', config.git.email)
         }
 
         // Auto-detect SSH keys only if not already saved, OR if saved but missing tag
         if (!config.git.sshKeyPath || !config.git.sshKeyTag) {
           if (!config.git.sshKeyPath) {
-            console.log('🔎 Auto-detecting SSH keys... (no saved SSH key)')
+            logger.info('🔎 Auto-detecting SSH keys... (no saved SSH key)')
           } else {
-            console.log('🔎 Auto-detecting SSH key tag... (missing saved tag for existing key)')
+            logger.info('🔎 Auto-detecting SSH key tag... (missing saved tag for existing key)')
           }
           
           const sshKeys = await window.electronAPI.git.detectSSHKeys()
@@ -409,7 +410,7 @@ Configuration Summary:
             // Find the existing saved key in the detected keys
             selectedKey = sshKeys.find(key => key.path === config.git.sshKeyPath && key.exists)
             if (!selectedKey) {
-              console.log('⚠️ Saved SSH key not found in detected keys, will try to extract tag from saved path')
+              logger.warn('⚠️ Saved SSH key not found in detected keys, will try to extract tag from saved path')
             }
           } else {
             // Find the first available key for fresh detection
@@ -429,11 +430,11 @@ Configuration Summary:
                   const publicKeyPath = keyPath.endsWith('.pub') ? keyPath : `${keyPath}.pub`
                   const publicKeyContent = await window.electronAPI.git.readSSHKey(publicKeyPath)
                   keyTag = extractSSHKeyTag(publicKeyContent)
-                  console.log('🏷️ Extracted SSH key tag from public key:', keyTag)
+                  logger.info('🏷️ Extracted SSH key tag from public key:', keyTag)
                 } catch (error) {
                   // If no public key, try to extract from private key
                   keyTag = extractSSHKeyTag(keyContent)
-                  console.log('🏷️ Extracted SSH key tag from private key:', keyTag)
+                  logger.info('🏷️ Extracted SSH key tag from private key:', keyTag)
                 }
               }
               
@@ -444,64 +445,64 @@ Configuration Summary:
               config.git.sshKeyTag = keyTag
               
               if (hasNewData) {
-                console.log('🔄 SSH key updated:', keyPath, 'with tag:', keyTag)
+                logger.info('🔄 SSH key updated:', keyPath, 'with tag:', keyTag)
                 hasUserChanges = true // Save the updated SSH key data
               } else {
-                console.log('✅ SSH key data already complete')
+                logger.info('✅ SSH key data already complete')
               }
             } catch (error) {
-              console.log('❌ Failed to read SSH key:', error)
+              logger.error('❌ Failed to read SSH key:', error)
             }
           } else {
-            console.log('ℹ️ No SSH keys found during auto-detection')
+            logger.info('ℹ️ No SSH keys found during auto-detection')
           }
         } else {
-          console.log('✅ SSH key and tag already saved, skipping auto-detection')
-          console.log('   SSH key path:', config.git.sshKeyPath)
-          console.log('   SSH key tag:', config.git.sshKeyTag)
+          logger.info('✅ SSH key and tag already saved, skipping auto-detection')
+          logger.info('   SSH key path:', config.git.sshKeyPath)
+          logger.info('   SSH key tag:', config.git.sshKeyTag)
           // Try to load the SSH key content if missing but path exists
           if (!config.git.sshKeyContent && config.git.sshKeyPath) {
             try {
               const keyContent = await window.electronAPI.git.readSSHKey(config.git.sshKeyPath)
               config.git.sshKeyContent = keyContent
-              console.log('🔄 Loaded SSH key content for saved path')
+              logger.info('🔄 Loaded SSH key content for saved path')
             } catch (error) {
-              console.log('❌ Failed to load SSH key content for saved path:', error)
+              logger.error('❌ Failed to load SSH key content for saved path:', error)
             }
           }
         }
 
         // Auto-detect kubeconfig only if not already saved
         if (!config.kubernetes.kubeConfigPath) {
-          console.log('🔎 Auto-detecting kubeconfig... (no saved kubeconfig)')
+          logger.info('🔎 Auto-detecting kubeconfig... (no saved kubeconfig)')
           const detection = await window.electronAPI.kubeconfig.detect()
           if (detection && detection.found && detection.path) {
             config.kubernetes.kubeConfigPath = detection.path
-            console.log('🔄 Kubeconfig auto-detected:', detection.path)
+            logger.info('🔄 Kubeconfig auto-detected:', detection.path)
             hasUserChanges = true // Save the detected kubeconfig
           } else {
-            console.log('ℹ️ No kubeconfig found during auto-detection')
+            logger.info('ℹ️ No kubeconfig found during auto-detection')
           }
         } else {
-          console.log('✅ Kubeconfig already saved, skipping auto-detection')
-          console.log('   Kubeconfig path:', config.kubernetes.kubeConfigPath)
+          logger.info('✅ Kubeconfig already saved, skipping auto-detection')
+          logger.info('   Kubeconfig path:', config.kubernetes.kubeConfigPath)
         }
 
         // Save configuration if we made any changes
         if (hasUserChanges) {
-          console.log('💾 Saving updated configuration with new auto-detected values')
+          logger.info('💾 Saving updated configuration with new auto-detected values')
           await this.setConfig(config)
-          console.log('✅ Configuration saved successfully')
+          logger.info('✅ Configuration saved successfully')
         } else {
-          console.log('ℹ️ No changes made, using existing saved configuration')
+          logger.info('ℹ️ No changes made, using existing saved configuration')
         }
         
       } catch (error) {
-        console.error('Auto-detection failed:', error)
+        logger.error('Auto-detection failed:', error)
       }
     }
     
-    console.log('🏁 Final config (respecting saved values):', JSON.stringify(config, null, 2))
+    logger.info('🏁 Final config (respecting saved values):', JSON.stringify(config, null, 2))
     return config
   }
 

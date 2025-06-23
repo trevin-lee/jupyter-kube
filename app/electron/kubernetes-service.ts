@@ -2,6 +2,7 @@ import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import { KubernetesPortForwardService, PortForwardResult, PortForwardStatus } from './kubernetes-portforward'
+import { logger } from './logging-service'
 
 // Use eval to prevent TypeScript from transforming the dynamic import
 let k8s: any = null
@@ -63,7 +64,7 @@ class KubernetesMainService {
 
   private async findSuitableNamespace(): Promise<string> {
     try {
-      console.log('🔍 Finding suitable namespace with permissions...')
+      logger.info('🔍 Finding suitable namespace with permissions...')
       
       // First, check if there's a default namespace set in the kubeconfig context
       const currentContext = this.kc.getCurrentContext()
@@ -71,7 +72,7 @@ class KubernetesMainService {
         throw new Error('No current context found')
       }
       
-      console.log('🔍 Current context object:', JSON.stringify(currentContext, null, 2))
+      logger.info('🔍 Current context object:', JSON.stringify(currentContext, null, 2))
       
       // Check if the context has a namespace specified
       let defaultNamespace = ''
@@ -79,20 +80,20 @@ class KubernetesMainService {
       // Method 1: Check if currentContext is an object with namespace
       if (typeof currentContext === 'object' && currentContext.namespace) {
         defaultNamespace = currentContext.namespace
-        console.log(`📋 Found default namespace from context object: "${defaultNamespace}"`)
+        logger.info(`📋 Found default namespace from context object: "${defaultNamespace}"`)
       } else {
         // Method 2: Get namespace from the full context objects array
         const contexts = this.kc.getContexts()
-        console.log('🔍 Available contexts:', contexts.map((ctx: any) => ({ name: ctx.name, namespace: ctx.namespace })))
+        logger.info('🔍 Available contexts:', contexts.map((ctx: any) => ({ name: ctx.name, namespace: ctx.namespace })))
         
         const contextName = typeof currentContext === 'string' ? currentContext : currentContext?.name
         const activeContext = contexts.find((ctx: any) => ctx.name === contextName)
         
         if (activeContext) {
-          console.log('🔍 Active context details:', { name: activeContext.name, namespace: activeContext.namespace, cluster: activeContext.cluster, user: activeContext.user })
+          logger.info('🔍 Active context details:', { name: activeContext.name, namespace: activeContext.namespace, cluster: activeContext.cluster, user: activeContext.user })
           if (activeContext.namespace) {
             defaultNamespace = activeContext.namespace
-            console.log(`📋 Found default namespace from context details: "${defaultNamespace}"`)
+            logger.info(`📋 Found default namespace from context details: "${defaultNamespace}"`)
           }
         }
       }
@@ -100,27 +101,27 @@ class KubernetesMainService {
       // Method 3: Try to use kubectl to get the current namespace
       if (!defaultNamespace) {
         try {
-          console.log('🔍 Trying to detect namespace from kubectl context...')
+          logger.info('🔍 Trying to detect namespace from kubectl context...')
           // We could run `kubectl config view --minify -o jsonpath='{..namespace}'` but let's avoid external deps
           // Instead, let's check the raw kubeconfig structure
           const config = this.kc.exportConfig()
-          console.log('🔍 Raw kubeconfig current-context:', config['current-context'])
+          logger.info('🔍 Raw kubeconfig current-context:', config['current-context'])
           
           if (config.contexts) {
             const currentCtx = config.contexts.find((ctx: any) => ctx.name === config['current-context'])
             if (currentCtx && currentCtx.context && currentCtx.context.namespace) {
               defaultNamespace = currentCtx.context.namespace
-              console.log(`📋 Found default namespace from raw kubeconfig: "${defaultNamespace}"`)
+              logger.info(`📋 Found default namespace from raw kubeconfig: "${defaultNamespace}"`)
             }
           }
         } catch (error) {
-          console.log('⚠️ Could not extract namespace from raw kubeconfig:', error)
+          logger.warn('⚠️ Could not extract namespace from raw kubeconfig:', error)
         }
       }
       
       // If we found a default namespace, use it
       if (defaultNamespace) {
-        console.log(`✅ Using default namespace: ${defaultNamespace}`)
+        logger.info(`✅ Using default namespace: ${defaultNamespace}`)
         return defaultNamespace
       }
       
@@ -133,16 +134,16 @@ class KubernetesMainService {
       } else if (typeof currentContext === 'string') {
         // Context is just a string name
         const users = this.kc.getUsers()
-        console.log('Available users:', users.map((u: any) => ({ name: u.name, user: u.user })))
+        logger.info('Available users:', users.map((u: any) => ({ name: u.name, user: u.user })))
         if (users.length > 0) {
           username = users[0].name || users[0].user || ''
         }
       }
       
-      console.log(`📋 Extracted username: "${username}"`)
+      logger.info(`📋 Extracted username: "${username}"`)
       
       if (!username) {
-        console.log('⚠️ No username found, will check common namespaces only')
+        logger.warn('⚠️ No username found, will check common namespaces only')
         userId = ''
       } else {
         // Extract user ID from username (handle URLs like "http://cilogon.org/serverE/users/234082")
@@ -153,14 +154,14 @@ class KubernetesMainService {
         }
       }
       
-      console.log(`📋 Extracted user ID: "${userId}"`)
+      logger.info(`📋 Extracted user ID: "${userId}"`)
       
       // List all namespaces first to see what's available
       const namespacesResponse = await this.k8sApi.listNamespace()
       const namespaces = namespacesResponse.body?.items || namespacesResponse.items || []
       const namespaceNames = namespaces.map((ns: any) => ns.metadata?.name).filter(Boolean)
       
-      console.log(`Found ${namespaceNames.length} total namespaces`)
+      logger.info(`Found ${namespaceNames.length} total namespaces`)
       
       // High priority namespaces to check first (common user namespace patterns)
       const priorityNamespaces = [
@@ -185,40 +186,38 @@ class KubernetesMainService {
       // Combine priority and user namespaces, removing duplicates
       const candidateNamespaces = [...new Set([...priorityNamespaces, ...userNamespaces])]
       
-      console.log(`Checking candidate namespaces: ${candidateNamespaces.join(', ')}`)
+      logger.info(`Checking candidate namespaces: ${candidateNamespaces.join(', ')}`)
       
       // Check if any candidate namespaces exist
       for (const candidateNs of candidateNamespaces) {
         if (namespaceNames.includes(candidateNs)) {
-          console.log(`✅ Found and using namespace: ${candidateNs}`)
+          logger.info(`✅ Found and using namespace: ${candidateNs}`)
           return candidateNs
         } else {
-          console.log(`⚠️ Namespace ${candidateNs} not found in cluster`)
+          logger.warn(`⚠️ Namespace ${candidateNs} not found in cluster`)
         }
       }
       
       // Last resort: try some common namespace patterns
       const lastResortPatterns = ['default', 'kube-public', 'jupyter', 'jupyter-lab', 'notebook', 'lab']
-      console.log(`🔍 Trying last resort namespace patterns: ${lastResortPatterns.join(', ')}`)
+      logger.info(`🔍 Trying last resort namespace patterns: ${lastResortPatterns.join(', ')}`)
       
       for (const pattern of lastResortPatterns) {
         if (namespaceNames.includes(pattern)) {
-          console.log(`✅ Using last resort namespace: ${pattern}`)
+          logger.info(`✅ Using last resort namespace: ${pattern}`)
           return pattern
         }
       }
       
       // If we still haven't found a suitable namespace, provide a helpful error
-      console.log('📋 Available namespaces for reference:', namespaceNames.slice(0, 20).join(', '))
+      logger.warn('📋 Available namespaces for reference:', namespaceNames.slice(0, 20).join(', '))
       throw new Error(`No suitable namespace found. Available namespaces: ${namespaceNames.slice(0, 10).join(', ')}... Please specify a namespace manually or contact your cluster administrator.`)
       
     } catch (error) {
-      console.error('Error finding suitable namespace:', error)
+      logger.error('Error finding suitable namespace:', error)
       throw error
     }
   }
-
-
 
   private async initialize() {
     if (!this.initialized) {
@@ -234,11 +233,11 @@ class KubernetesMainService {
       const clusters = this.kc.getClusters()
       const users = this.kc.getUsers()
       
-      console.log('=== KUBECONFIG DEBUG (initialize) ===')
-      console.log('- Current context:', currentContext)
-      console.log('- Available contexts:', contexts.map((c: any) => c.name))
-      console.log('- Available clusters:', clusters.map((c: any) => c.name))
-      console.log('- Available users:', users.map((u: any) => u.name))
+      logger.info('=== KUBECONFIG DEBUG (initialize) ===')
+      logger.info('- Current context:', currentContext)
+      logger.info('- Available contexts:', contexts.map((c: any) => c.name))
+      logger.info('- Available clusters:', clusters.map((c: any) => c.name))
+      logger.info('- Available users:', users.map((u: any) => u.name))
       
       if (!currentContext) {
         throw new Error('No current context set in kubeconfig during initialization')
@@ -252,11 +251,11 @@ class KubernetesMainService {
         throw new Error('No clusters found in kubeconfig during initialization')
       }
       
-      console.log('Creating API clients...')
+      logger.info('Creating API clients...')
       this.k8sApi = this.kc.makeApiClient(k8sModule.CoreV1Api)
       this.k8sAppsApi = this.kc.makeApiClient(k8sModule.AppsV1Api)
       this.k8sAuthApi = this.kc.makeApiClient(k8sModule.AuthorizationV1Api)
-      console.log('✅ API clients created successfully')
+      logger.info('✅ API clients created successfully')
       
       this.initialized = true
     }
@@ -267,12 +266,12 @@ class KubernetesMainService {
     
     // If we're still using the default namespace, try to find a better one
     if (this.namespace === 'default') {
-      console.log('🔍 Default namespace detected, finding suitable namespace...')
+      logger.info('🔍 Default namespace detected, finding suitable namespace...')
       try {
         this.namespace = await this.findSuitableNamespace()
-        console.log(`✅ Using namespace: ${this.namespace}`)
+        logger.info(`✅ Using namespace: ${this.namespace}`)
       } catch (error) {
-        console.warn('⚠️ Could not find suitable namespace, will use default:', error)
+        logger.warn('⚠️ Could not find suitable namespace, will use default:', error)
         // Keep using default and let the actual operations fail with helpful error messages
         // This way users get specific permission errors rather than generic failures
       }
@@ -281,7 +280,7 @@ class KubernetesMainService {
     // Update port forwarding service with current namespace
     this.portForwardService.updateNamespace(this.namespace)
     
-    console.log(`📋 Final namespace selection: ${this.namespace}`)
+    logger.info(`📋 Final namespace selection: ${this.namespace}`)
   }
 
   private expandPath(filePath: string): string {
@@ -300,7 +299,7 @@ class KubernetesMainService {
         throw new Error(`Kubeconfig file not found at ${expandedPath}`)
       }
 
-      console.log(`Loading kubeconfig from: ${expandedPath}`)
+      logger.info(`Loading kubeconfig from: ${expandedPath}`)
       this.kc.loadFromFile(expandedPath)
       
       // Debug: Log kubeconfig info AFTER loading from file
@@ -309,11 +308,11 @@ class KubernetesMainService {
       const clusters = this.kc.getClusters()
       const users = this.kc.getUsers()
       
-      console.log('=== KUBECONFIG DEBUG (after file load) ===')
-      console.log('- Current context:', currentContext)
-      console.log('- Available contexts:', contexts.map((c: any) => c.name))
-      console.log('- Available clusters:', clusters.map((c: any) => c.name))
-      console.log('- Available users:', users.map((u: any) => u.name))
+      logger.info('=== KUBECONFIG DEBUG (after file load) ===')
+      logger.info('- Current context:', currentContext)
+      logger.info('- Available contexts:', contexts.map((c: any) => c.name))
+      logger.info('- Available clusters:', clusters.map((c: any) => c.name))
+      logger.info('- Available users:', users.map((u: any) => u.name))
       
       if (!currentContext) {
         throw new Error('No current context set in kubeconfig. Please set a current context with: kubectl config use-context <context-name>')
@@ -328,16 +327,16 @@ class KubernetesMainService {
       }
 
       const k8sModule = await loadK8s()
-      console.log('Recreating API clients with loaded config...')
+      logger.info('Recreating API clients with loaded config...')
       this.k8sApi = this.kc.makeApiClient(k8sModule.CoreV1Api)
       this.k8sAppsApi = this.kc.makeApiClient(k8sModule.AppsV1Api)
       this.k8sAuthApi = this.kc.makeApiClient(k8sModule.AuthorizationV1Api)
-      console.log('✅ API clients recreated successfully')
+      logger.info('✅ API clients recreated successfully')
 
-      console.log('Testing connection to cluster...')
+      logger.info('Testing connection to cluster...')
       // Test connection by listing namespaces
       const namespaces = await this.k8sApi.listNamespace()
-      console.log('Raw namespaces response:', namespaces)
+      logger.info('Raw namespaces response:', namespaces)
       
       // Handle different response structures
       let namespaceCount = 0
@@ -348,26 +347,26 @@ class KubernetesMainService {
       } else if (Array.isArray(namespaces)) {
         namespaceCount = namespaces.length
       } else {
-        console.log('Unexpected response structure, but connection successful')
+        logger.warn('Unexpected response structure, but connection successful')
         namespaceCount = 0
       }
       
-      console.log(`✅ Successfully connected! Found ${namespaceCount} namespaces`)
+      logger.info(`✅ Successfully connected! Found ${namespaceCount} namespaces`)
       
       // Find a suitable namespace for deployments
-      console.log('🔍 Finding suitable namespace...')
+      logger.info('🔍 Finding suitable namespace...')
       try {
         this.namespace = await this.findSuitableNamespace()
-        console.log(`✅ Using namespace: ${this.namespace}`)
+        logger.info(`✅ Using namespace: ${this.namespace}`)
       } catch (error) {
-        console.warn('⚠️ Could not find suitable namespace during validation, will use default:', error)
+        logger.warn('⚠️ Could not find suitable namespace during validation, will use default:', error)
         // Don't fail validation just because we can't find a namespace yet
         this.namespace = 'default'
       }
       
       return true
     } catch (error) {
-      console.error('Kubernetes connection validation failed:', error)
+      logger.error('Kubernetes connection validation failed:', error)
       
       // Provide more helpful error messages
       const errorMessage = error instanceof Error ? error.message : String(error)
@@ -391,10 +390,10 @@ class KubernetesMainService {
     // Use the namespace from config if provided, otherwise use detected/default
     if (config.kubernetes?.namespace) {
       this.namespace = config.kubernetes.namespace
-      console.log(`🎯 Using configured namespace: ${this.namespace}`)
+      logger.info(`🎯 Using configured namespace: ${this.namespace}`)
     }
     
-    console.log(`🔐 Attempting to deploy secrets to namespace: ${this.namespace}`)
+    logger.info(`🔐 Attempting to deploy secrets to namespace: ${this.namespace}`)
     
     const secrets = []
 
@@ -417,7 +416,7 @@ class KubernetesMainService {
         }
       }
       secrets.push(sshSecret)
-      console.log(`📋 Prepared SSH key secret for namespace: ${this.namespace}`)
+      logger.info(`📋 Prepared SSH key secret for namespace: ${this.namespace}`)
     }
 
     // Deploy Git credentials secret
@@ -440,25 +439,25 @@ class KubernetesMainService {
         }
       }
       secrets.push(gitSecret)
-      console.log(`📋 Prepared Git credentials secret for namespace: ${this.namespace}`)
+      logger.info(`📋 Prepared Git credentials secret for namespace: ${this.namespace}`)
     }
 
     if (secrets.length === 0) {
-      console.log('ℹ️ No secrets to deploy')
+      logger.info('ℹ️ No secrets to deploy')
       return
     }
 
     // Deploy all secrets
     for (const secret of secrets) {
       try {
-        console.log(`🚀 Creating secret ${secret.metadata?.name} in namespace ${this.namespace}`)
+        logger.info(`🚀 Creating secret ${secret.metadata?.name} in namespace ${this.namespace}`)
         await this.k8sApi.createNamespacedSecret({
           namespace: this.namespace,
           body: secret
         })
-        console.log(`✅ Created secret: ${secret.metadata?.name}`)
+        logger.info(`✅ Created secret: ${secret.metadata?.name}`)
       } catch (error: any) {
-        console.log(`🔍 Error details for secret ${secret.metadata?.name}:`, {
+        logger.error(`🔍 Error details for secret ${secret.metadata?.name}:`, {
           message: error.message,
           response: error.response,
           statusCode: error.response?.status,
@@ -476,20 +475,20 @@ class KubernetesMainService {
         )
         
         if (is409Error) {
-          console.log(`🔄 Secret ${secret.metadata?.name} already exists, updating...`)
+          logger.info(`🔄 Secret ${secret.metadata?.name} already exists, updating...`)
           try {
             await this.k8sApi.replaceNamespacedSecret({
               name: secret.metadata!.name!,
               namespace: this.namespace,
               body: secret
             })
-            console.log(`✅ Updated existing secret: ${secret.metadata?.name}`)
+            logger.info(`✅ Updated existing secret: ${secret.metadata?.name}`)
           } catch (updateError: any) {
-            console.error(`❌ Failed to update existing secret ${secret.metadata?.name}:`, updateError)
+            logger.error(`❌ Failed to update existing secret ${secret.metadata?.name}:`, updateError)
             throw new Error(`Failed to update existing secret "${secret.metadata?.name}": ${updateError.message}`)
           }
         } else {
-          console.error(`❌ Failed to deploy secret ${secret.metadata?.name}:`, error)
+          logger.error(`❌ Failed to deploy secret ${secret.metadata?.name}:`, error)
           const is403Error = (
             error.response?.status === 403 ||
             error.statusCode === 403 ||
@@ -505,7 +504,7 @@ class KubernetesMainService {
         }
       }
     }
-    console.log(`✅ Successfully deployed ${secrets.length} secret(s) to namespace: ${this.namespace}`)
+    logger.info(`✅ Successfully deployed ${secrets.length} secret(s) to namespace: ${this.namespace}`)
   }
 
   private getGpuResourceKey(gpuType: string): string {
@@ -538,10 +537,10 @@ class KubernetesMainService {
         .digest('hex')
         .substring(0, 10)
       
-      console.log(`🔐 Generated kubeconfig hash from ${expandedPath}: ${hash}`)
+      logger.info(`🔐 Generated kubeconfig hash from ${expandedPath}: ${hash}`)
       return hash
     } catch (error: any) {
-      console.warn(`⚠️ Failed to generate kubeconfig hash: ${error.message}`)
+      logger.warn(`⚠️ Failed to generate kubeconfig hash: ${error.message}`)
       // Fallback to timestamp-based hash
       const crypto = require('crypto')
       const fallbackContent = `${kubeconfigPath}-${Date.now()}`
@@ -550,7 +549,7 @@ class KubernetesMainService {
         .digest('hex')
         .substring(0, 10)
       
-      console.log(`🔐 Using fallback hash: ${fallbackHash}`)
+      logger.info(`🔐 Using fallback hash: ${fallbackHash}`)
       return fallbackHash
     }
   }
@@ -563,7 +562,7 @@ class KubernetesMainService {
     // Create pod name with hash
     const podName = `jupyter-kube-${hash}`
     
-    console.log(`🏷️ Generated pod name from kubeconfig hash: "${podName}"`)
+    logger.info(`🏷️ Generated pod name from kubeconfig hash: "${podName}"`)
     return podName
   }
 
@@ -653,15 +652,15 @@ class KubernetesMainService {
     // Use the namespace from config if provided, otherwise use detected/default
     if (config.kubernetes?.namespace) {
       this.namespace = config.kubernetes.namespace
-      console.log(`🎯 Using configured namespace: ${this.namespace}`)
+      logger.info(`🎯 Using configured namespace: ${this.namespace}`)
     }
     
     const podName = this.generatePodName(config)
-    console.log(`🚀 Creating JupyterLab deployment "${podName}" in namespace: ${this.namespace}`)
+    logger.info(`🚀 Creating JupyterLab deployment "${podName}" in namespace: ${this.namespace}`)
     
     // Check if deployment already exists and handle appropriately
     try {
-      console.log(`🔍 Checking if deployment "${podName}" already exists...`)
+      logger.info(`🔍 Checking if deployment "${podName}" already exists...`)
       const existingDeployment = await this.k8sAppsApi.readNamespacedDeployment({
         name: podName,
         namespace: this.namespace
@@ -672,14 +671,14 @@ class KubernetesMainService {
         const readyReplicas = existingDeployment.body?.status?.readyReplicas || existingDeployment.status?.readyReplicas || 0
         const availableReplicas = existingDeployment.body?.status?.availableReplicas || existingDeployment.status?.availableReplicas || 0
         
-        console.log(`📋 Found existing deployment "${podName}" with replicas: ${replicas}, ready: ${readyReplicas}, available: ${availableReplicas}`)
+        logger.info(`📋 Found existing deployment "${podName}" with replicas: ${replicas}, ready: ${readyReplicas}, available: ${availableReplicas}`)
         
         // Get more detailed deployment information for better decision making
         const deletionTimestamp = existingDeployment.body?.metadata?.deletionTimestamp || existingDeployment.metadata?.deletionTimestamp
         const deploymentConditions = existingDeployment.body?.status?.conditions || existingDeployment.status?.conditions || []
         
         // Log detailed state for debugging
-        console.log(`🔍 Deployment "${podName}" detailed state:`, {
+        logger.info(`🔍 Deployment "${podName}" detailed state:`, {
           replicas,
           readyReplicas,
           availableReplicas,
@@ -694,14 +693,14 @@ class KubernetesMainService {
         
         if (isHealthyRunningDeployment) {
           // This is a healthy running deployment - use it immediately for fast reconnection
-          console.log(`🚀 Found healthy running deployment "${podName}" - using for fast reconnection`)
+          logger.info(`🚀 Found healthy running deployment "${podName}" - using for fast reconnection`)
           const error = new Error(`EXISTING_POD_FOUND:${podName}`)
           error.name = 'ExistingPodFound'
           throw error
         }
         
         if (deletionTimestamp) {
-          console.log(`⏳ Deployment "${podName}" has deletionTimestamp set, waiting for removal before creating new one`)
+          logger.info(`⏳ Deployment "${podName}" has deletionTimestamp set, waiting for removal before creating new one`)
           // Wait a bit for the deployment to be fully deleted, then continue with creation
           await new Promise(resolve => setTimeout(resolve, 3000))
           // Re-check if deployment still exists after waiting
@@ -711,39 +710,39 @@ class KubernetesMainService {
               namespace: this.namespace
             })
             if (recheckDeployment) {
-              console.log(`⚠️ Deployment "${podName}" still exists after waiting, it may be stuck in terminating state`)
+              logger.warn(`⚠️ Deployment "${podName}" still exists after waiting, it may be stuck in terminating state`)
               throw new Error(`Deployment "${podName}" is stuck in terminating state. Please delete it manually with: kubectl delete deployment ${podName} -n ${this.namespace}`)
             }
           } catch (recheckError: any) {
             if (recheckError.code === 404 || recheckError.response?.status === 404) {
-              console.log(`✅ Deployment "${podName}" has been successfully deleted, proceeding with creation`)
+              logger.info(`✅ Deployment "${podName}" has been successfully deleted, proceeding with creation`)
             } else {
               throw recheckError
             }
           }
         } else if (isDeploymentStarting) {
           // Deployment is starting - can be reused
-          console.log(`🎯 Found starting deployment "${podName}" - redirecting to it`)
+          logger.info(`🎯 Found starting deployment "${podName}" - redirecting to it`)
           const error = new Error(`EXISTING_POD_FOUND:${podName}`)
           error.name = 'ExistingPodFound'
           throw error
         } else if (!isUsableDeployment) {
           // Deployment is in a bad state - delete it
-          console.log(`⚠️ Deployment "${podName}" is in unusable state (ready: ${readyReplicas}/${replicas}), cleaning it up`)
+          logger.info(`⚠️ Deployment "${podName}" is in unusable state (ready: ${readyReplicas}/${replicas}), cleaning it up`)
           try {
             await this.k8sAppsApi.deleteNamespacedDeployment({
               name: podName,
               namespace: this.namespace
             })
-            console.log(`🗑️ Deleted unusable deployment "${podName}", proceeding with new creation`)
+            logger.info(`🗑️ Deleted unusable deployment "${podName}", proceeding with new creation`)
             // Wait for deployment to be fully deleted
             await new Promise(resolve => setTimeout(resolve, 5000))
           } catch (deleteError: any) {
-            console.warn(`⚠️ Failed to delete unusable deployment "${podName}":`, deleteError.message)
+            logger.warn(`⚠️ Failed to delete unusable deployment "${podName}":`, deleteError.message)
           }
         } else {
           // Default case - deployment seems usable, try to redirect to it
-          console.log(`🎯 Using existing deployment "${podName}" (ready: ${readyReplicas}/${replicas}) instead of creating new one`)
+          logger.info(`🎯 Using existing deployment "${podName}" (ready: ${readyReplicas}/${replicas}) instead of creating new one`)
           const error = new Error(`EXISTING_POD_FOUND:${podName}`)
           error.name = 'ExistingPodFound'
           throw error
@@ -755,9 +754,9 @@ class KubernetesMainService {
         throw checkError
       } else if (checkError.code === 404 || checkError.response?.status === 404 || checkError.message?.includes('HTTP-Code: 404')) {
         // Deployment doesn't exist, which is what we want for creating a new one
-        console.log(`✅ Deployment "${podName}" does not exist, proceeding with creation`)
+        logger.info(`✅ Deployment "${podName}" does not exist, proceeding with creation`)
       } else {
-        console.error(`❌ Error checking for existing deployment:`, checkError)
+        logger.error(`❌ Error checking for existing deployment:`, checkError)
         throw new Error(`Unable to check for existing deployment "${podName}": ${checkError.message}`)
       }
     }
@@ -823,7 +822,7 @@ class KubernetesMainService {
     }
 
     // Build resource requirements
-    console.log(`🔍 Raw resource config from user:`, {
+    logger.info(`🔍 Raw resource config from user:`, {
       cpu: config.hardware.cpu,
       memory: config.hardware.memory,
       gpu: config.hardware.gpu,
@@ -838,12 +837,12 @@ class KubernetesMainService {
       normalizedCpu = this.normalizeResourceQuantity(config.hardware.cpu, 'cpu')
       normalizedMemory = this.normalizeResourceQuantity(config.hardware.memory, 'memory')
       
-      console.log(`✅ Normalized resources:`, {
+      logger.info(`✅ Normalized resources:`, {
         cpu: `"${config.hardware.cpu}" -> "${normalizedCpu}"`,
         memory: `"${config.hardware.memory}" -> "${normalizedMemory}"`
       })
     } catch (error) {
-      console.error(`❌ Resource normalization failed:`, error)
+      logger.error(`❌ Resource normalization failed:`, error)
       throw new Error(`Invalid resource configuration: ${error}`)
     }
     
@@ -913,17 +912,17 @@ class KubernetesMainService {
       }
     }
 
-    console.log(`🔍 Final deployment specification:`, JSON.stringify(deploymentSpec, null, 2))
+    logger.info(`🔍 Final deployment specification:`, JSON.stringify(deploymentSpec, null, 2))
 
     try {
       await this.k8sAppsApi.createNamespacedDeployment({
         namespace: this.namespace,
         body: deploymentSpec
       })
-      console.log(`✅ Created deployment: ${podName} in namespace: ${this.namespace}`)
+      logger.info(`✅ Created deployment: ${podName} in namespace: ${this.namespace}`)
       return podName
     } catch (error: any) {
-      console.error(`❌ Failed to create deployment in namespace ${this.namespace}:`, {
+      logger.error(`❌ Failed to create deployment in namespace ${this.namespace}:`, {
         message: error.message,
         response: error.response,
         statusCode: error.response?.status,
@@ -1036,7 +1035,7 @@ class KubernetesMainService {
         }))
       }
     } catch (error) {
-      console.error('Failed to get pod status:', error)
+      logger.error('Failed to get pod status:', error)
       throw error
     }
   }
@@ -1059,7 +1058,7 @@ class KubernetesMainService {
         // Wait before checking again
         await new Promise(resolve => setTimeout(resolve, 2000))
       } catch (error) {
-        console.error('Error checking pod status:', error)
+        logger.error('Error checking pod status:', error)
         throw error
       }
     }
@@ -1075,11 +1074,11 @@ class KubernetesMainService {
       const namespaces = namespacesResponse.body?.items || namespacesResponse.items || []
       const namespaceNames = namespaces.map((ns: any) => ns.metadata?.name).filter(Boolean)
       
-      console.log(`📋 Available namespaces: ${namespaceNames.join(', ')}`)
+      logger.info(`📋 Available namespaces: ${namespaceNames.join(', ')}`)
       return namespaceNames
       
     } catch (error) {
-      console.error('Failed to list namespaces:', error)
+      logger.error('Failed to list namespaces:', error)
       return []
     }
   }
@@ -1088,7 +1087,7 @@ class KubernetesMainService {
     try {
       await this.initialize()
       
-      console.log('🔍 Detecting default namespace from kubeconfig...')
+      logger.info('🔍 Detecting default namespace from kubeconfig...')
       
       // Method 1: Check if currentContext is an object with namespace
       const currentContext = this.kc.getCurrentContext()
@@ -1096,18 +1095,18 @@ class KubernetesMainService {
       
       if (typeof currentContext === 'object' && currentContext.namespace) {
         defaultNamespace = currentContext.namespace
-        console.log(`📋 Found default namespace from context object: "${defaultNamespace}"`)
+        logger.info(`📋 Found default namespace from context object: "${defaultNamespace}"`)
       } else {
         // Method 2: Get namespace from the full context objects array
         const contexts = this.kc.getContexts()
-        console.log('🔍 Available contexts:', contexts.map((ctx: any) => ({ name: ctx.name, namespace: ctx.namespace })))
+        logger.info('🔍 Available contexts:', contexts.map((ctx: any) => ({ name: ctx.name, namespace: ctx.namespace })))
         
         const contextName = typeof currentContext === 'string' ? currentContext : currentContext?.name
         const activeContext = contexts.find((ctx: any) => ctx.name === contextName)
         
         if (activeContext && activeContext.namespace) {
           defaultNamespace = activeContext.namespace
-          console.log(`📋 Found default namespace from context details: "${defaultNamespace}"`)
+          logger.info(`📋 Found default namespace from context details: "${defaultNamespace}"`)
         }
       }
       
@@ -1119,11 +1118,11 @@ class KubernetesMainService {
             const currentCtx = config.contexts.find((ctx: any) => ctx.name === config['current-context'])
             if (currentCtx && currentCtx.context && currentCtx.context.namespace) {
               defaultNamespace = currentCtx.context.namespace
-              console.log(`📋 Found default namespace from raw kubeconfig: "${defaultNamespace}"`)
+              logger.info(`📋 Found default namespace from raw kubeconfig: "${defaultNamespace}"`)
             }
           }
         } catch (error) {
-          console.log('⚠️ Could not extract namespace from raw kubeconfig:', error)
+          logger.warn('⚠️ Could not extract namespace from raw kubeconfig:', error)
         }
       }
       
@@ -1136,7 +1135,7 @@ class KubernetesMainService {
       }
       
     } catch (error) {
-      console.error('Failed to detect default namespace:', error)
+      logger.error('Failed to detect default namespace:', error)
       return {
         defaultNamespace: null,
         availableNamespaces: []
@@ -1151,7 +1150,7 @@ class KubernetesMainService {
     try {
       await this.initialize()
       
-      console.log(`🔍 Validating namespace: ${namespace}`)
+      logger.info(`🔍 Validating namespace: ${namespace}`)
       
       // Check if namespace exists
       const namespaces = await this.listAvailableNamespaces()
@@ -1169,7 +1168,7 @@ class KubernetesMainService {
       }
       
     } catch (error) {
-      console.error(`Failed to validate namespace ${namespace}:`, error)
+      logger.error(`Failed to validate namespace ${namespace}:`, error)
       return {
         exists: false,
         error: `Failed to validate namespace: ${error}`
@@ -1178,23 +1177,23 @@ class KubernetesMainService {
   }
 
   async deployJupyterLab(config: any): Promise<{ podName: string; status: PodStatus }> {
-    console.log('🚀 Starting JupyterLab deployment...')
+    logger.info('🚀 Starting JupyterLab deployment...')
 
     // Validate connection
     await this.validateConnection(config.kubernetes.kubeConfigPath)
-    console.log('✅ Kubernetes connection validated')
+    logger.info('✅ Kubernetes connection validated')
 
     // Deploy secrets
     await this.deploySecrets(config)
-    console.log('✅ Secrets deployed')
+    logger.info('✅ Secrets deployed')
 
     // Create pod
     const podName = await this.createJupyterLabPod(config)
-    console.log(`✅ Pod created: ${podName}`)
+    logger.info(`✅ Pod created: ${podName}`)
 
     // Wait for pod to be ready
     const status = await this.waitForPodReady(podName)
-    console.log('✅ Pod is ready!')
+    logger.info('✅ Pod is ready!')
 
     return { podName, status }
   }
@@ -1208,7 +1207,7 @@ class KubernetesMainService {
         name: podName,
         namespace: this.namespace
       })
-      console.log(`Deleted deployment: ${podName}`)
+      logger.info(`Deleted deployment: ${podName}`)
 
       // Clean up secrets (optional - you might want to keep them for next deployment)
       const secretsToDelete = ['jupyter-ssh-key', 'jupyter-git-config']
@@ -1218,15 +1217,15 @@ class KubernetesMainService {
             name: secretName,
             namespace: this.namespace
           })
-          console.log(`Deleted secret: ${secretName}`)
+          logger.info(`Deleted secret: ${secretName}`)
         } catch (error: any) {
           if (error.response?.status !== 404) {
-            console.warn(`Failed to delete secret ${secretName}:`, error.message)
+            logger.warn(`Failed to delete secret ${secretName}:`, error.message)
           }
         }
       }
     } catch (error) {
-      console.error('Failed to cleanup JupyterLab:', error)
+      logger.error('Failed to cleanup JupyterLab:', error)
       throw error
     }
   }

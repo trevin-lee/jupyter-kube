@@ -5,6 +5,7 @@ import { Trash2, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { kubernetesService } from '../api/kubernetes-service'
 import { PodStatus } from '../types/app'
+import logger from '../api/logger'
 
 interface JupyterLabProps {
   podName: string
@@ -36,10 +37,10 @@ const JupyterLab: React.FC<JupyterLabProps> = ({
       // Clean up the JupyterLab pod
       await kubernetesService.cleanupJupyterLab(podName)
       
-      console.log('Pod deleted successfully')
+      logger.info('Pod deleted successfully')
       onPodDeleted()
     } catch (error) {
-      console.error('Error deleting pod:', error)
+      logger.error('Error deleting pod:', error)
       // Could show an error notification here
       // For now, still call onPodDeleted to let the parent handle the error state
       onPodDeleted()

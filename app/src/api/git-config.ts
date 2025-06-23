@@ -1,6 +1,7 @@
 import * as fs from 'fs'
 import * as path from 'path'
 import * as os from 'os'
+import logger from './logger'
 
 export interface GitGlobalConfig {
   username?: string
@@ -179,7 +180,7 @@ export async function detectSSHKeysElectron(): Promise<SSHKeyInfo[]> {
             keyInfo.tag = tag
             keyInfo.content = content
           } catch (error) {
-            console.log(`Failed to read key ${key.path}:`, error)
+            logger.warn(`Failed to read key ${key.path}:`, error)
             keyInfo.tag = 'Unable to read'
           }
         } else {
@@ -191,7 +192,7 @@ export async function detectSSHKeysElectron(): Promise<SSHKeyInfo[]> {
       
       return enrichedKeys
     } catch (error) {
-      console.error('Failed to detect SSH keys via Electron API:', error)
+      logger.error('Failed to detect SSH keys via Electron API:', error)
       return []
     }
   }
@@ -254,7 +255,7 @@ export function getGitGlobalConfigSync(): GitGlobalConfig {
       // Email not set globally
     }
   } catch (error) {
-    console.error('Failed to read git global config:', error)
+    logger.error('Failed to read git global config:', error)
   }
   
   return globalConfig
@@ -266,7 +267,7 @@ export async function getGitGlobalConfigElectron(): Promise<GitGlobalConfig> {
     try {
       return await window.electronAPI.git.getGlobalConfig()
     } catch (error) {
-      console.error('Failed to get git global config via Electron API:', error)
+      logger.error('Failed to get git global config via Electron API:', error)
       return {}
     }
   }
@@ -279,7 +280,7 @@ export async function openSSHKeyDialogElectron(): Promise<string | null> {
     try {
       return await window.electronAPI.git.openSSHKeyDialog()
     } catch (error) {
-      console.error('Failed to open SSH key dialog:', error)
+      logger.error('Failed to open SSH key dialog:', error)
       return null
     }
   }
@@ -313,7 +314,7 @@ export async function detectGitConfiguration(): Promise<GitConfigDetectionResult
     result.found = !!(globalConfig.username || globalConfig.email || hasAvailableKeys)
     
   } catch (error) {
-    console.error('Git configuration detection failed:', error)
+    logger.error('Git configuration detection failed:', error)
   }
 
   return result
@@ -343,7 +344,7 @@ export async function loadGitConfiguration(sshKeyPath?: string): Promise<GitConf
       config.selectedSSHKey = selectedSSHKey
       config.sshKeyContent = sshKeyContent
     } catch (error) {
-      console.error(`Failed to load SSH key from ${sshKeyPath}:`, error)
+      logger.error(`Failed to load SSH key from ${sshKeyPath}:`, error)
     }
   }
   
@@ -455,7 +456,7 @@ export async function prepareSSHKeyForDeployment(
     // Try to read the public key
     publicKeyContent = await readSSHKeyElectron(publicKeyPath)
   } catch (error) {
-    console.log('Public key not found, will generate from private key if needed')
+    logger.warn('Public key not found, will generate from private key if needed')
   }
   
   return {

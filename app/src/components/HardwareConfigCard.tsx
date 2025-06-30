@@ -72,7 +72,7 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
   }
 
   const handleAddPvc = () => {
-    const newPvc: PvcConfig = { name: '', mountPath: 'data' }
+    const newPvc: PvcConfig = { name: '' }
     onConfigChange('pvcs', [...config.pvcs, newPvc])
   }
 
@@ -81,9 +81,9 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
     onConfigChange('pvcs', updatedPvcs)
   }
 
-  const handlePvcChange = (index: number, field: keyof PvcConfig, value: string) => {
-    const updatedPvcs = config.pvcs.map((pvc, i) => 
-      i === index ? { ...pvc, [field]: value } : pvc
+  const handlePvcNameChange = (index: number, value: string) => {
+    const updatedPvcs = config.pvcs.map((pvc, i) =>
+      i === index ? { ...pvc, name: value } : pvc
     )
     onConfigChange('pvcs', updatedPvcs)
   }
@@ -249,35 +249,19 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
                       Remove
                     </Button>
                   </div>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                    <div className="space-y-2">
-                      <Label htmlFor={`pvc-name-${index}`}>
-                        PVC Name
-                      </Label>
-                      <Input
-                        id={`pvc-name-${index}`}
-                        placeholder="my-data-pvc"
-                        value={pvc.name}
-                        onChange={(e) => handlePvcChange(index, 'name', e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Name of the Persistent Volume Claim to mount
-                      </p>
-                    </div>
-                    <div className="space-y-2">
-                      <Label htmlFor={`pvc-mount-${index}`}>
-                        Folder Name
-                      </Label>
-                      <Input
-                        id={`pvc-mount-${index}`}
-                        placeholder="my-data"
-                        value={pvc.mountPath}
-                        onChange={(e) => handlePvcChange(index, 'mountPath', e.target.value)}
-                      />
-                      <p className="text-xs text-muted-foreground">
-                        Folder name under /home/jovyan/main/ (e.g., "my-data" → /home/jovyan/main/my-data)
-                      </p>
-                    </div>
+                  <div className="space-y-2">
+                    <Label htmlFor={`pvc-name-${index}`}>
+                      PVC Name
+                    </Label>
+                    <Input
+                      id={`pvc-name-${index}`}
+                      placeholder="my-data-pvc"
+                      value={pvc.name}
+                      onChange={(e) => handlePvcNameChange(index, e.target.value)}
+                    />
+                    <p className="text-xs text-muted-foreground">
+                      Name of the Persistent Volume Claim to mount
+                    </p>
                   </div>
                 </div>
               ))}

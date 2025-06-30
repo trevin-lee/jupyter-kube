@@ -5,6 +5,12 @@ export interface CondaEnvironment {
   fileName?: string
 }
 
+export interface SSHKeyInfo {
+  path: string;
+  content?: string;
+  tag?: string;
+}
+
 export interface GitConfig {
   username: string
   email: string
@@ -17,7 +23,7 @@ export interface GitConfig {
 
 export interface PvcConfig {
   name: string
-  mountPath: string
+  mountPath?: string
 }
 
 export interface HardwareConfig {
@@ -73,4 +79,50 @@ export interface AppState {
   podStatus: PodStatus | null
   error: string | null
   isLoading: boolean
+}
+
+// Types shared between main and renderer
+export type DeploymentPhase =
+  | 'initializing'
+  | 'validating-connection'
+  | 'creating-manifests'
+  | 'applying-manifests'
+  | 'waiting-for-pod'
+  | 'pod-ready'
+  | 'setting-up-access'
+  | 'ready'
+  | 'error'
+  | 'cancelled';
+
+export interface DeploymentProgress {
+  phase: DeploymentPhase;
+  message: string;
+  progress: number;
+  podName?: string;
+  podStatus?: any;
+  jupyterUrl?: string;
+  error?: string;
+}
+
+export interface GitGlobalConfig {
+  username: string;
+  email: string;
+}
+
+export interface AppKubeConfig {
+  kubeConfigPath: string | null
+  currentContext: string | null
+  namespace: string | null
+  availableNamespaces: string[]
+}
+
+// This represents the state saved on the electron side
+export interface ElectronAppState {
+  condaConfig: { environments: CondaEnvironment[] }
+  gitConfig: { 
+    globalConfig: GitGlobalConfig;
+    sshKeys: SSHKeyInfo[];
+  };
+  kubeConfig: AppKubeConfig;
+  hardwareConfig: HardwareConfig;
 }

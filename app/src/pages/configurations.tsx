@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react'
+import * as formManager from '../api/form-manager'
 import { Button } from "../components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "../components/ui/card"
 import { Badge } from "../components/ui/badge"
@@ -8,7 +9,6 @@ import { KubernetesConfigCard } from '../components/KubernetesConfigCard'
 import { HardwareConfigCard } from '../components/HardwareConfigCard'
 import { EnvironmentConfigCard } from '../components/EnvironmentConfigCard'
 import { GitConfigCard } from '../components/GitConfigCard'
-import { configService } from '../api/app-config'
 import logger from '../api/logger'
 
 interface ConfigurationsPageProps {
@@ -27,7 +27,7 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
     const loadConfig = async () => {
       try {
         logger.info('Loading configuration with auto-detection...')
-        const configWithAutoDetection = await configService.getConfigWithAutoDetection()
+        const configWithAutoDetection = await formManager.getConfigWithAutoDetection()
         setConfig(configWithAutoDetection)
         logger.info('Configuration loaded successfully')
       } catch (error) {
@@ -118,7 +118,7 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
       logger.info('🔧 Updated config:', updatedConfig.hardware)
       
       // Auto-save with the updated config
-      configService.autoSave(updatedConfig)
+      formManager.autoSave(updatedConfig)
       
       return updatedConfig
     })
@@ -131,7 +131,7 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
       kubernetes: { ...config.kubernetes, [field]: value }
     }
     setConfig(updatedConfig)
-    configService.autoSave(updatedConfig)
+    formManager.autoSave(updatedConfig)
   }
 
   const handleEnvironmentsChange = (environments: any[]) => {
@@ -141,14 +141,14 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
       environment: { condaEnvironments: environments }
     }
     setConfig(updatedConfig)
-    configService.autoSave(updatedConfig)
+    formManager.autoSave(updatedConfig)
   }
 
   const handleGitConfigChange = (gitConfig: any) => {
     if (!config) return
     const updatedConfig = { ...config, git: gitConfig }
     setConfig(updatedConfig)
-    configService.autoSave(updatedConfig)
+    formManager.autoSave(updatedConfig)
   }
 
   const isFormValid = () => {

@@ -1,34 +1,18 @@
-const isElectron = !!window.electronAPI;
+interface Logger {
+  info: (...args: any[]) => void;
+  warn: (...args: any[]) => void;
+  error: (...args: any[]) => void;
+  debug: (...args: any[]) => void;
+}
 
-const logger = {
-  info: (...args: any[]): void => {
-    if (isElectron && window.electronAPI.logger) {
-      window.electronAPI.logger.info(...args);
-    } else {
-      console.log(...args);
-    }
-  },
-  warn: (...args: any[]): void => {
-    if (isElectron && window.electronAPI.logger) {
-      window.electronAPI.logger.warn(...args);
-    } else {
-      console.warn(...args);
-    }
-  },
-  error: (...args: any[]): void => {
-    if (isElectron && window.electronAPI.logger) {
-      window.electronAPI.logger.error(...args);
-    } else {
-      console.error(...args);
-    }
-  },
-  debug: (...args: any[]): void => {
-    if (isElectron && window.electronAPI.logger) {
-      window.electronAPI.logger.debug(...args);
-    } else {
-      console.debug(...args);
-    }
-  },
+// A stub logger for when the electronAPI is not available (e.g. in tests or storybook)
+const consoleLogger: Logger = {
+  info: console.log,
+  warn: console.warn,
+  error: console.error,
+  debug: console.debug,
 };
+
+const logger: Logger = window.electronAPI?.logger || consoleLogger;
 
 export default logger; 

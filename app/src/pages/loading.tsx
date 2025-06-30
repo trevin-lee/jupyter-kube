@@ -3,8 +3,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../co
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Loader2, CheckCircle, XCircle, AlertCircle, ArrowLeft, Server, Rocket } from 'lucide-react'
-import { AppConfig, PodStatus } from '../types/app'
-import { kubernetesService, DeploymentProgress } from '../api/kubernetes-service'
+import { AppConfig, PodStatus, DeploymentProgress } from '../types/app'
 import { getGpuDisplayName } from '../api/utils'
 import logger from '../api/logger'
 
@@ -15,119 +14,57 @@ interface LoadingPageProps {
   onBack: () => void
 }
 
-type DeploymentPhase = 
-  | 'initializing' 
-  | 'validating-connection' 
-  | 'creating-deployment' 
-  | 'waiting-for-pod' 
-  | 'waiting-for-ready' 
-  | 'setting-up-access'
-  | 'ready' 
-  | 'error'
-
 const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, onBack }) => {
-  const [phase, setPhase] = useState<DeploymentPhase>('initializing')
+  const [phase, setPhase] = useState<DeploymentProgress['phase']>('initializing')
   const [podName, setPodName] = useState<string>('')
   const [podStatus, setPodStatus] = useState<PodStatus | null>(null)
   const [error, setError] = useState<string>('')
   const [progress, setProgress] = useState<string>('Initializing...')
-  const [deploymentName, setDeploymentName] = useState<string>('')
   const [jupyterUrl, setJupyterUrl] = useState<string>('')
   const [progressPercentage, setProgressPercentage] = useState<number>(0)
   
-  // Store cleanup functions  
-  const pollIntervalRef = useRef<NodeJS.Timeout | null>(null)
-  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
+  // Ref to track if component is mounted to avoid state updates after unmount
+  const isMounted = useRef(true)
 
-  // Cleanup function
-  const cleanup = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current)
-      pollIntervalRef.current = null
-    }
-    if (timeoutRef.current) {
-      clearTimeout(timeoutRef.current)
-      timeoutRef.current = null
-    }
-  }
-
-  // Main deployment effect
   useEffect(() => {
-    // Debug: Log what's available in the window object
-    logger.info('🔍 Debug - Window object keys:', Object.keys(window))
-    logger.info('🔍 Debug - electronAPI available:', !!window.electronAPI)
-    if (window.electronAPI) {
-      logger.info('🔍 Debug - electronAPI keys:', Object.keys(window.electronAPI))
-      if (window.electronAPI.kubernetes) {
-        logger.info('🔍 Debug - kubernetes keys:', Object.keys(window.electronAPI.kubernetes))
-      }
+    isMounted.current = true
+
+    const removeListener = window.electronAPI.kubernetes.onProgress((event, progressUpdate) => {
+        if (isMounted.current) {
+            setPhase(progressUpdate.phase)
+            setProgress(progressUpdate.message)
+            setProgressPercentage(progressUpdate.progress)
+            if (progressUpdate.podName) setPodName(progressUpdate.podName)
+            if (progressUpdate.podStatus) setPodStatus(progressUpdate.podStatus)
+            if (progressUpdate.jupyterUrl) setJupyterUrl(progressUpdate.jupyterUrl)
+            if (progressUpdate.error) setError(progressUpdate.error)
+
+            if(progressUpdate.phase === 'ready') {
+                setTimeout(() => {
+                    if (isMounted.current) {
+                      onSuccess(progressUpdate.podName!, progressUpdate.podStatus!, progressUpdate.jupyterUrl)
+                    }
+                  }, 1000)
+            } else if (progressUpdate.phase === 'error') {
+                onError(progressUpdate.error || 'Unknown error');
+            }
+          }
+    });
+
+    window.electronAPI.kubernetes.deploy(config as any);
+
+    return () => {
+      isMounted.current = false
+      removeListener();
     }
-    
-    const deployPod = async () => {
-      try {
-        // Check deployment status and reset if needed
-        const deploymentStatus = kubernetesService.getDeploymentStatus()
-        if (deploymentStatus.isDeploying) {
-          logger.warn('⚠️ Previous deployment state detected, resetting...')
-          await kubernetesService.stopCurrentDeployment()
-        }
-        
-        // Use the new IPC-based deployment with progress tracking
-        const result = await kubernetesService.deployWithProgress(config, (progress: DeploymentProgress) => {
-          logger.info(`📊 Progress update: ${progress.phase} - ${progress.progress}% - ${progress.message}`)
-          
-          setPhase(progress.phase)
-          setProgress(progress.message)
-          setProgressPercentage(progress.progress || 0)
-          
-          if (progress.podName) {
-            setPodName(progress.podName)
-          }
-          
-          if (progress.podStatus) {
-            setPodStatus(progress.podStatus)
-          }
-          
-          if (progress.jupyterUrl) {
-            setJupyterUrl(progress.jupyterUrl)
-          }
-          
-          if (progress.error) {
-            setError(progress.error)
-          }
-        })
-
-        // Success!
-        setPhase('ready')
-        setProgress('🎉 JupyterLab is ready!')
-        setProgressPercentage(100) // Ensure we reach 100% on success
-        setPodName(result.podName)
-        setPodStatus(result.status)
-        
-        // Store jupyterUrl from result if not already set by progress
-        if (result.jupyterUrl && !jupyterUrl) {
-          setJupyterUrl(result.jupyterUrl)
-        }
-        
-        // Navigate to JupyterLab after a short delay
-        setTimeout(() => onSuccess(result.podName, result.status, result.jupyterUrl), 1000)
-        
-      } catch (deployError) {
-        cleanup()
-        logger.error('❌ Deployment error:', deployError)
-        setPhase('error')
-        // Don't reset progress on error - keep current progress to avoid jumping backwards
-        const errorMessage = deployError instanceof Error ? deployError.message : 'Unknown deployment error'
-        setError(errorMessage)
-        onError(errorMessage)
-      }
-    }
-
-    deployPod()
-
-    // Cleanup on unmount
-    return cleanup
   }, [config, onSuccess, onError])
+
+
+  const handleGoBack = () => {
+    // Attempt to cancel the deployment if it's in progress
+    window.electronAPI.kubernetes.cancel();
+    onBack()
+  }
 
   // Helper function to get progress message based on pod status
   const getProgressMessage = (status: PodStatus): string => {
@@ -142,16 +79,14 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
     }
   }
 
-
-
   const getPhaseIcon = () => {
     switch (phase) {
       case 'initializing':
       case 'validating-connection':
         return <Server className="h-8 w-8 animate-pulse text-blue-500" />
-      case 'creating-deployment':
+      case 'creating-manifests':
       case 'waiting-for-pod':
-      case 'waiting-for-ready':
+      case 'applying-manifests':
       case 'setting-up-access':
         return <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
       case 'ready':
@@ -167,9 +102,9 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
     switch (phase) {
       case 'initializing':
       case 'validating-connection':
-      case 'creating-deployment':
+      case 'creating-manifests':
       case 'waiting-for-pod':
-      case 'waiting-for-ready':
+      case 'applying-manifests':
       case 'setting-up-access':
         return 'bg-blue-50 border-blue-200'
       case 'ready':
@@ -187,11 +122,11 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
         return 'Initializing'
       case 'validating-connection':
         return 'Validating Connection'
-      case 'creating-deployment':
+      case 'creating-manifests':
         return 'Creating Deployment'
       case 'waiting-for-pod':
         return 'Scheduling Pod'
-      case 'waiting-for-ready':
+      case 'applying-manifests':
         return 'Starting Services'
       case 'setting-up-access':
         return 'Setting Up Access'
@@ -204,13 +139,11 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
     }
   }
 
-
-
   return (
     <div className="min-h-screen bg-background text-foreground">
       <div className="container mx-auto p-6 max-w-2xl">
         <div className="flex items-center gap-4 mb-8">
-          <Button variant="outline" onClick={onBack}>
+          <Button variant="outline" onClick={handleGoBack}>
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Configuration
           </Button>
@@ -247,11 +180,6 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
             </CardHeader>
             <CardContent>
               <div className="flex justify-center gap-4 text-sm">
-                {deploymentName && (
-                  <Badge variant="outline">
-                    Deployment: {deploymentName}
-                  </Badge>
-                )}
                 {podName && (
                   <Badge variant="outline">
                     Pod: {podName}
@@ -308,16 +236,11 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
                   <div className="col-span-2">
                     <span className="font-medium">Storage Volumes:</span>
                     <div className="text-muted-foreground">
-                      {config.hardware.pvcs.map((pvc, index) => {
-                        // Show the actual mount path that will be used
-                        const cleanPath = pvc.mountPath.replace(/^\/+/, '')
-                        const fullMountPath = `/home/jovyan/main/${cleanPath}`
-                        return (
-                          <p key={index} className="text-xs">
-                            {pvc.name} → {fullMountPath}
-                          </p>
-                        )
-                      })}
+                      {config.hardware.pvcs
+                        .filter(pvc => pvc.name)
+                        .map((pvc, index) => (
+                          <p key={index} className="text-xs">{pvc.name} → /home/jovyan/main/{pvc.name}</p>
+                        ))}
                     </div>
                   </div>
                 )}

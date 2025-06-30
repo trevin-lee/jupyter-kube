@@ -5,18 +5,7 @@ import { Input } from "./ui/input"
 import { Label } from "./ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "./ui/select"
 import { GitBranch, Upload, User, Mail, RefreshCw, X, FolderOpen, Key } from 'lucide-react'
-import { GitConfig } from '../types/app'
-import { 
-  detectGitConfiguration, 
-  openSSHKeyDialogElectron, 
-  readSSHKeyElectron,
-  GitConfigDetectionResult,
-  SSHKeyInfo,
-  getAllSSHKeys,
-  getGitGlobalConfigElectron,
-  detectSSHKeysElectron,
-  extractSSHKeyTag
-} from '../api/git-config'
+import { GitConfig, SSHKeyInfo } from '../types/app'
 import logger from '../api/logger'
 
 interface GitConfigCardProps {
@@ -46,7 +35,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
       logger.info('🔍 Scanning for Git credentials...')
       await new Promise(resolve => setTimeout(resolve, 300))
       
-      const globalConfig = await getGitGlobalConfigElectron()
+      const globalConfig = await window.electronAPI.gitConfig.detect()
       
       if (globalConfig.username || globalConfig.email) {
         logger.info('✅ Git credentials detected:', globalConfig)
@@ -79,18 +68,17 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
       setSshKeyFound(false)
       setAvailableSSHKeys([])
       
-      const sshKeys = await detectSSHKeysElectron()
-      const availableKeys = getAllSSHKeys(sshKeys)
+      const sshKeys = await window.electronAPI.gitConfig.detectSSHKeys()
       
-      logger.info('🔍 SSH keys found:', availableKeys.length)
-      setAvailableSSHKeys(availableKeys)
+      logger.info('🔍 SSH keys found:', sshKeys.length)
+      setAvailableSSHKeys(sshKeys)
       
-      if (availableKeys.length > 0) {
+      if (sshKeys.length > 0) {
         setSshKeyFound(true)
         
         // If user hasn't selected a key yet, use the first available
         if (!selectedSSHKeyPath) {
-          const defaultKey = availableKeys[0]
+          const defaultKey = sshKeys[0]
           setSelectedSSHKeyPath(defaultKey.path)
           onGitConfigChange({
             ...gitConfig,
@@ -125,7 +113,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
     } else {
       // If content not cached, read it
       try {
-        const keyContent = await readSSHKeyElectron(keyPath)
+        const keyContent = await window.electronAPI.gitConfig.readSSHKey(keyPath)
         
         // Try to extract the tag from the selected key
         let keyTag = ''
@@ -134,10 +122,10 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
         } else {
           try {
             const publicKeyPath = keyPath.endsWith('.pub') ? keyPath : `${keyPath}.pub`
-            const publicKeyContent = await readSSHKeyElectron(publicKeyPath)
-            keyTag = extractSSHKeyTag(publicKeyContent)
+            const publicKeyContent = await window.electronAPI.gitConfig.readSSHKey(publicKeyPath)
+            keyTag = await window.electronAPI.gitConfig.extractSSHKeyTag(publicKeyContent)
           } catch (error) {
-            keyTag = extractSSHKeyTag(keyContent)
+            keyTag = await window.electronAPI.gitConfig.extractSSHKeyTag(keyContent)
           }
         }
         
@@ -169,18 +157,18 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
 
   const handleSelectSSHKey = async () => {
     try {
-      const filePath = await openSSHKeyDialogElectron()
+      const filePath = await window.electronAPI.gitConfig.openSSHKeyDialog()
       if (filePath) {
-        const keyContent = await readSSHKeyElectron(filePath)
+        const keyContent = await window.electronAPI.gitConfig.readSSHKey(filePath)
         
         // Try to extract the tag from the selected file
         let keyTag = ''
         try {
           const publicKeyPath = filePath.endsWith('.pub') ? filePath : `${filePath}.pub`
-          const publicKeyContent = await readSSHKeyElectron(publicKeyPath)
-          keyTag = extractSSHKeyTag(publicKeyContent)
+          const publicKeyContent = await window.electronAPI.gitConfig.readSSHKey(publicKeyPath)
+          keyTag = await window.electronAPI.gitConfig.extractSSHKeyTag(publicKeyContent)
         } catch (error) {
-          keyTag = extractSSHKeyTag(keyContent)
+          keyTag = await window.electronAPI.gitConfig.extractSSHKeyTag(keyContent)
         }
         
         onGitConfigChange({
@@ -208,17 +196,17 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
         const content = e.target?.result as string
         
         // Try to extract tag from file content
-        const keyTag = extractSSHKeyTag(content)
-        
-        onGitConfigChange({
-          ...gitConfig,
-          sshKeyPath: file.name,
-          sshKeyContent: content,
-          sshKeyTag: keyTag
+        window.electronAPI.gitConfig.extractSSHKeyTag(content).then(keyTag => {
+          onGitConfigChange({
+            ...gitConfig,
+            sshKeyPath: file.name,
+            sshKeyContent: content,
+            sshKeyTag: keyTag
+          })
+          setSelectedSSHKeyPath(file.name)
+          setSshKeyFound(true)
+          setSshKeyChecked(true)
         })
-        setSelectedSSHKeyPath(file.name)
-        setSshKeyFound(true)
-        setSshKeyChecked(true)
       }
       reader.readAsText(file)
     }
@@ -247,17 +235,17 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
         const content = e.target?.result as string
         
         // Try to extract tag from dropped file content
-        const keyTag = extractSSHKeyTag(content)
-        
-        onGitConfigChange({
-          ...gitConfig,
-          sshKeyPath: file.name,
-          sshKeyContent: content,
-          sshKeyTag: keyTag
+        window.electronAPI.gitConfig.extractSSHKeyTag(content).then(keyTag => {
+          onGitConfigChange({
+            ...gitConfig,
+            sshKeyPath: file.name,
+            sshKeyContent: content,
+            sshKeyTag: keyTag
+          })
+          setSelectedSSHKeyPath(file.name)
+          setSshKeyFound(true)
+          setSshKeyChecked(true)
         })
-        setSelectedSSHKeyPath(file.name)
-        setSshKeyFound(true)
-        setSshKeyChecked(true)
       }
       reader.readAsText(file)
     }
@@ -273,6 +261,7 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
     setSelectedSSHKeyPath('')
     setSshKeyFound(false)
     setSshKeyChecked(true)
+    setAvailableSSHKeys([])
   }
 
   // Only auto-detect when user explicitly clicks the scan button
@@ -282,9 +271,15 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
   useEffect(() => {
     logger.info('🔑 GitConfigCard: gitConfig changed, sshKeyPath:', gitConfig.sshKeyPath)
     
-    setSshKeyFound(!!gitConfig.sshKeyPath)
-    setSshKeyChecked(true) // Mark as checked since we have config data
-    setGitConfigLoaded(true) // Mark git config as loaded
+    // Only update if we haven't explicitly checked yet
+    if (!sshKeyChecked) {
+      setSshKeyFound(!!gitConfig.sshKeyPath)
+      setSshKeyChecked(true)
+    }
+    
+    if (!gitConfigLoaded) {
+      setGitConfigLoaded(true)
+    }
     
     if (gitConfig.sshKeyPath) {
       setSelectedSSHKeyPath(gitConfig.sshKeyPath)
@@ -300,10 +295,15 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
         // Only try to extract from content if no saved tag exists
         if (!gitConfig.sshKeyTag && gitConfig.sshKeyContent) {
           try {
-            const extractedTag = extractSSHKeyTag(gitConfig.sshKeyContent)
-            if (extractedTag && extractedTag !== 'No identifier' && extractedTag !== 'Unknown') {
-              keyTag = extractedTag
-            }
+            window.electronAPI.gitConfig.extractSSHKeyTag(gitConfig.sshKeyContent).then(extractedTag => {
+              if (extractedTag && extractedTag !== 'No identifier' && extractedTag !== 'Unknown') {
+                // Update the git config with the extracted tag
+                onGitConfigChange({
+                  ...gitConfig,
+                  sshKeyTag: extractedTag
+                })
+              }
+            })
           } catch (error) {
             logger.warn('Could not extract SSH key tag:', error)
           }
@@ -313,11 +313,6 @@ export const GitConfigCard: React.FC<GitConfigCardProps> = ({
         
         const autoDetectedKey: SSHKeyInfo = {
           path: gitConfig.sshKeyPath,
-          type: gitConfig.sshKeyPath.includes('ed25519') ? 'ED25519' : 
-                gitConfig.sshKeyPath.includes('rsa') ? 'RSA' : 'Unknown',
-          exists: true,
-          source: 'default' as const,
-          description: 'Auto-detected SSH key',
           content: gitConfig.sshKeyContent,
           tag: keyTag
         }

@@ -3,7 +3,6 @@ import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Trash2, AlertTriangle } from 'lucide-react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
-import { kubernetesService } from '../api/kubernetes-service'
 import { PodStatus } from '../types/app'
 import logger from '../api/logger'
 
@@ -31,13 +30,10 @@ const JupyterLab: React.FC<JupyterLabProps> = ({
 
     setIsDeleting(true)
     try {
-      // Stop port forwarding first
-      await kubernetesService.stopPortForward()
+      // The new k8s service in electron handles both port-forward cleanup and resource deletion.
+      window.electronAPI.kubernetes.cleanup(podName)
       
-      // Clean up the JupyterLab pod
-      await kubernetesService.cleanupJupyterLab(podName)
-      
-      logger.info('Pod deleted successfully')
+      logger.info('Pod deletion process initiated for', podName)
       onPodDeleted()
     } catch (error) {
       logger.error('Error deleting pod:', error)

@@ -3,11 +3,9 @@ import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import { FolderOpen, Upload, RefreshCw, X, Search, AlertCircle, Loader2 } from 'lucide-react'
+import { FolderOpen, Upload, RefreshCw, X, Search, AlertCircle } from 'lucide-react'
 import { KubernetesConfig } from '../types/app'
-import { kubernetesService } from '../api/kubernetes-service'
 import logger from '../api/logger'
-// import { loadDefaultKubeConfig } from '../api/kubernetes-config' // Moved to Electron main process
 
 interface KubernetesConfigCardProps {
   config: KubernetesConfig
@@ -28,14 +26,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   const [detectedNamespace, setDetectedNamespace] = useState<string | null>(null)
   const [availableNamespaces, setAvailableNamespaces] = useState<string[]>([])
   const [isDetectingNamespace, setIsDetectingNamespace] = useState(false)
-  const [namespaceValidation, setNamespaceValidation] = useState<{
-    isValidating: boolean
-    exists: boolean
-    error?: string
-  }>({
-    isValidating: false,
-    exists: false
-  })
 
   const handleDetectKubeConfig = async () => {
     setIsScanning(true)
@@ -48,13 +38,20 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       setKubeConfigFound(false)
       
       // Call the Electron API to detect kubeconfig
-      const detection = await window.electronAPI.kubeconfig.detect()
+      const detection = await window.electronAPI.kubernetes.detectConfig()
       logger.info('🔍 Detection result:', detection)
       
-      if (detection && detection.found && detection.path) {
-        onConfigChange('kubeConfigPath', detection.path)
+      if (detection && detection.kubeConfigPath) {
+        onConfigChange('kubeConfigPath', detection.kubeConfigPath)
         setKubeConfigFound(true)
-        logger.info('✅ Kubeconfig detected and set:', detection.path)
+        logger.info('✅ Kubeconfig detected and set:', detection.kubeConfigPath)
+        if(detection.namespace) {
+          onConfigChange('namespace', detection.namespace)
+        }
+        if(detection.availableNamespaces) {
+            setAvailableNamespaces(detection.availableNamespaces)
+        }
+
       } else {
         onConfigChange('kubeConfigPath', '')
         setKubeConfigFound(false)
@@ -71,13 +68,13 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   }
 
   const handleSelectKubeConfig = () => {
-    kubeConfigInputRef.current?.click()
+    // By using electron dialog we don't need this anymore
   }
 
   const handleKubeConfigFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0]
     if (file) {
-      onConfigChange('kubeConfigPath', `${file.name}`)
+      onConfigChange('kubeConfigPath', `${(file as any).path}`)
       setKubeConfigFound(true)
       setKubeConfigChecked(true)
     }
@@ -101,7 +98,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     const files = e.dataTransfer.files
     if (files?.[0]) {
       const file = files[0]
-      onConfigChange('kubeConfigPath', `${file.name}`)
+      onConfigChange('kubeConfigPath', `${(file as any).path}`)
       setKubeConfigFound(true)
       setKubeConfigChecked(true)
     }
@@ -109,8 +106,11 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 
   const clearKubeConfig = () => {
     onConfigChange('kubeConfigPath', '')
+    onConfigChange('namespace', '')
     setKubeConfigFound(false)
     setKubeConfigChecked(true)
+    setDetectedNamespace(null)
+    setAvailableNamespaces([])
   }
 
   // Detect namespace when kubeconfig is available
@@ -122,13 +122,13 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     
     setIsDetectingNamespace(true)
     try {
-      const result = await kubernetesService.detectDefaultNamespace()
-      setDetectedNamespace(result.defaultNamespace)
+      const result = await window.electronAPI.kubernetes.detectConfig()
+      setDetectedNamespace(result.namespace)
       setAvailableNamespaces(result.availableNamespaces)
       
       // If no namespace is set in config and we detected one, use it
-      if (!config.namespace && result.defaultNamespace) {
-        onConfigChange('namespace', result.defaultNamespace)
+      if (!config.namespace && result.namespace) {
+        onConfigChange('namespace', result.namespace)
       }
       
       logger.info('🔍 Namespace detection result:', result)
@@ -139,36 +139,9 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     }
   }
 
-  // Validate namespace
-  const handleValidateNamespace = async (namespace: string) => {
-    if (!namespace || !config.kubeConfigPath) return
-    
-    setNamespaceValidation(prev => ({ ...prev, isValidating: true }))
-    try {
-      const result = await kubernetesService.validateNamespace(namespace)
-      setNamespaceValidation({
-        isValidating: false,
-        exists: result.exists,
-        error: result.error
-      })
-    } catch (error) {
-      setNamespaceValidation({
-        isValidating: false,
-        exists: false,
-        error: `Validation failed: ${error}`
-      })
-    }
-  }
-
-  // Handle namespace input changes
+  // Handle namespace input changes (simplified)
   const handleNamespaceChange = (namespace: string) => {
     onConfigChange('namespace', namespace)
-    // Debounce validation
-    const timeoutId = setTimeout(() => {
-      handleValidateNamespace(namespace)
-    }, 500)
-    
-    return () => clearTimeout(timeoutId)
   }
 
   // Only auto-detect when user explicitly clicks the scan button
@@ -176,22 +149,16 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 
   // Update states when config changes (from loaded config or user input)
   useEffect(() => {
-    setKubeConfigFound(!!config.kubeConfigPath)
-    setKubeConfigChecked(true) // Mark as checked since we have config data
+    if (!kubeConfigChecked && config.kubeConfigPath !== undefined) {
+      setKubeConfigFound(!!config.kubeConfigPath)
+      setKubeConfigChecked(true)
+    }
     
     // Auto-detect namespace when kubeconfig becomes available
     if (config.kubeConfigPath && !detectedNamespace) {
       handleDetectNamespace()
     }
   }, [config.kubeConfigPath])
-
-  // Validate namespace when both kubeconfig and namespace are loaded (e.g., from persistent storage)
-  useEffect(() => {
-    if (config.kubeConfigPath && config.namespace && !namespaceValidation.isValidating) {
-      logger.info('🔍 Auto-validating namespace loaded from storage:', config.namespace)
-      handleValidateNamespace(config.namespace)
-    }
-  }, [config.kubeConfigPath, config.namespace])
 
   // Render methods for different states
   const renderScanningState = () => (
@@ -376,7 +343,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
             disabled={isDetectingNamespace}
           >
             {isDetectingNamespace ? (
-              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+              <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
             ) : (
               <Search className="h-4 w-4 mr-2" />
             )}
@@ -390,34 +357,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
             value={config.namespace || ''}
             onChange={(e) => handleNamespaceChange(e.target.value)}
           />
-          
-          {/* Validation feedback */}
-          {namespaceValidation.isValidating && (
-            <div className="flex items-center gap-2 text-sm text-muted-foreground">
-              <Loader2 className="h-3 w-3 animate-spin" />
-              Validating namespace...
-            </div>
-          )}
-          
-          {!namespaceValidation.isValidating && config.namespace && (
-            <div className="space-y-1">
-              {namespaceValidation.exists ? (
-                <div className="flex items-center gap-2 text-sm text-green-600">
-                  <span className="text-green-600">✓</span>
-                  Namespace exists
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 text-sm text-red-600">
-                  <AlertCircle className="h-3 w-3" />
-                  Namespace not found
-                </div>
-              )}
-              
-              {namespaceValidation.error && (
-                <p className="text-xs text-red-600">{namespaceValidation.error}</p>
-              )}
-            </div>
-          )}
           
           <p className="text-xs text-muted-foreground">
             The Kubernetes namespace where your JupyterLab will be deployed. 

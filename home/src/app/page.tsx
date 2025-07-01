@@ -333,7 +333,7 @@ export default function Home() {
                 <Button className="w-full" asChild>
                   <a href={downloadLinks.windows}>
                     <Download className="h-4 w-4 mr-2" />
-                    Download Installer
+                    Installer
                   </a>
                 </Button>
               </div>

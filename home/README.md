@@ -80,3 +80,16 @@ NRP Jupyter Launcher provides:
 - **Real-time Monitoring**: Live deployment progress and resource monitoring
 
 **⚠️ Important**: This tool is designed exclusively for the National Research Platform's Kubernetes cluster and will not work with other Kubernetes clusters.
+
+## macOS Security Warning
+
+If you see **"NRP Jupyter Launcher.app" is damaged and can't be opened** on macOS:
+
+### Quick Fix:
+1. **Option 1**: Right-click the app and select "Open" instead of double-clicking
+2. **Option 2**: Run this command in Terminal:
+   ```bash
+   xattr -cr /Applications/NRP\ Jupyter\ Launcher.app
+   ```
+
+This happens because the app isn't code-signed with an Apple Developer certificate. The app is safe to use - this is just macOS's security system (Gatekeeper) being cautious with unsigned apps.

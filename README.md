@@ -172,6 +172,15 @@ The application automatically searches for these tools in common locations.
 
 ## Troubleshooting
 
+### macOS Security Warning ("App is damaged")
+If you see **"NRP Jupyter Launcher.app" is damaged and can't be opened"** on macOS:
+
+**Quick Fix Options:**
+1. Right-click the app and select "Open" (instead of double-clicking)
+2. Or run this Terminal command: `xattr -cr /Applications/NRP\ Jupyter\ Launcher.app`
+
+This happens because the app isn't code-signed with an Apple Developer certificate. The app is safe - this is macOS Gatekeeper protecting you from unsigned apps.
+
 ### OIDC Authentication Issues
 If you see "unknown command 'oidc-login'", install the kubectl-oidc_login plugin as described above.
 

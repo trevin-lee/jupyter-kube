@@ -38,7 +38,14 @@ export interface GitConfig {
 
 type K8sModule = typeof import('@kubernetes/client-node')
 let k8sPromise: Promise<K8sModule> | null = null
-const getK8s = () => (k8sPromise ??= import('@kubernetes/client-node') as Promise<K8sModule>)
+const getK8s = () => {
+  if (!k8sPromise) {
+    // Use Function constructor to prevent TypeScript from transpiling this
+    const dynamicImport = new Function('specifier', 'return import(specifier)')
+    k8sPromise = dynamicImport('@kubernetes/client-node') as Promise<K8sModule>
+  }
+  return k8sPromise
+}
 
 export class ManifestManager {
   private static instance: ManifestManager
@@ -50,6 +57,21 @@ export class ManifestManager {
       ManifestManager.instance = new ManifestManager()
     }
     return ManifestManager.instance
+  }
+
+  /**
+   * Normalize resource quantities to valid Kubernetes format
+   * e.g., "3Gb" -> "3G", "2gb" -> "2G", "512mb" -> "512M"
+   */
+  private normalizeResourceQuantity(quantity: string): string {
+    if (!quantity) return quantity
+    
+    // Replace common incorrect suffixes with correct ones
+    return quantity
+      .replace(/gb$/i, 'G')
+      .replace(/mb$/i, 'M')
+      .replace(/kb$/i, 'K')
+      .replace(/tb$/i, 'T')
   }
 
   public async buildManifests(config: AppConfig, baseNameOverride?: string): Promise<k8sTypes.KubernetesObject[]> {
@@ -141,12 +163,12 @@ export class ManifestManager {
                 env: [],
                 resources: {
                   requests: {
-                    cpu: hardware.cpu,
-                    memory: hardware.memory
+                    cpu: this.normalizeResourceQuantity(hardware.cpu),
+                    memory: this.normalizeResourceQuantity(hardware.memory)
                   },
                   limits: {
-                    cpu: hardware.cpu,
-                    memory: hardware.memory
+                    cpu: this.normalizeResourceQuantity(hardware.cpu),
+                    memory: this.normalizeResourceQuantity(hardware.memory)
                   }
                 },
                 volumeMounts: []

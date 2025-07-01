@@ -1,4 +1,4 @@
-import { app, BrowserWindow, ipcMain, dialog } from 'electron';
+import { app, BrowserWindow, ipcMain, dialog, shell } from 'electron';
 import * as path from 'path';
 import { logger } from './logging-service';
 import { GitConfigManager } from './git-config';
@@ -36,6 +36,7 @@ async function createWindow(): Promise<void> {
       contextIsolation: true,
       webSecurity: false, // Allow iframe to load localhost content (JupyterLab)
       allowRunningInsecureContent: true, // Allow mixed content for development
+      webviewTag: true, // Allow webview tags
     },
   });
 
@@ -48,6 +49,20 @@ async function createWindow(): Promise<void> {
         mainWindow.webContents.openDevTools();
       }
     }
+  });
+  
+  // Set CSP to allow iframe loading from localhost
+  mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    callback({
+      responseHeaders: {
+        ...details.responseHeaders,
+        'Content-Security-Policy': [
+          'frame-src http://localhost:8888 http://127.0.0.1:8888 \'self\';' +
+          'connect-src * ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*;' +
+          'default-src * \'unsafe-inline\' \'unsafe-eval\' data: blob: filesystem:;'
+        ]
+      }
+    });
   });
 
   mainWindow.on('closed', () => {
@@ -88,15 +103,9 @@ app.on('window-all-closed', () => {
   }
 });
 
-// Security: Prevent new window creation (except for JupyterLab)
+// Security: Prevent new window creation
 app.on('web-contents-created', (event, contents) => {
   contents.setWindowOpenHandler(({ url }) => {
-    // Allow opening JupyterLab localhost URLs
-    if (url.startsWith('http://localhost:8888') || url.startsWith('http://127.0.0.1:8888')) {
-      logger.info('Allowing JupyterLab window creation to:', url);
-      return { action: 'allow' };
-    }
-    
     logger.warn('Blocked new window creation to:', url);
     return { action: 'deny' };
   });
@@ -194,7 +203,9 @@ ipcMain.handle('kube:update', (event, namespace) => {
 // Kubernetes deployment handlers
 ipcMain.on('k8s:deploy', (event, config) => {
     if (!k8sService) return;
-    k8sService.deployWithProgress(config);
+    // Get the full state from FormStateManager instead of using the passed config
+    const fullState = formStateManager.getFullConfig();
+    k8sService.deployWithProgress(fullState);
 });
 
 ipcMain.on('k8s:cleanup', (event, deploymentName) => {
@@ -205,4 +216,10 @@ ipcMain.on('k8s:cleanup', (event, deploymentName) => {
 ipcMain.on('k8s:cancel', () => {
     if (!k8sService) return;
     k8sService.stopCurrentDeployment();
+});
+
+// Open external URL handler
+ipcMain.handle('app:openExternal', async (event, url) => {
+    logger.info('Opening external URL:', url);
+    await shell.openExternal(url);
 });

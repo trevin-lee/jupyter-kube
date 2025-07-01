@@ -22,9 +22,12 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
   const [progress, setProgress] = useState<string>('Initializing...')
   const [jupyterUrl, setJupyterUrl] = useState<string>('')
   const [progressPercentage, setProgressPercentage] = useState<number>(0)
+  const [isExistingDeployment, setIsExistingDeployment] = useState<boolean>(false)
   
   // Ref to track if component is mounted to avoid state updates after unmount
   const isMounted = useRef(true)
+  // Ref to ensure deployment is only triggered once
+  const deploymentTriggered = useRef(false)
 
   useEffect(() => {
     isMounted.current = true
@@ -38,11 +41,31 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
             if (progressUpdate.podStatus) setPodStatus(progressUpdate.podStatus)
             if (progressUpdate.jupyterUrl) setJupyterUrl(progressUpdate.jupyterUrl)
             if (progressUpdate.error) setError(progressUpdate.error)
+            
+            // Check if this is an existing deployment
+            if (progressUpdate.message.includes('existing') || progressUpdate.message.includes('Existing')) {
+              setIsExistingDeployment(true)
+            }
 
             if(progressUpdate.phase === 'ready') {
+                logger.info('🎉 Deployment ready! Navigating to JupyterLab...')
+                logger.info('Pod name:', progressUpdate.podName)
+                logger.info('Pod status:', progressUpdate.podStatus)
+                logger.info('JupyterLab URL:', progressUpdate.jupyterUrl)
+                
+                // Ensure we have all required data
+                const currentPodName = progressUpdate.podName || podName
+                const currentPodStatus = progressUpdate.podStatus || podStatus || { 
+                    status: 'Running', 
+                    ready: true, 
+                    phase: 'Running', 
+                    restartCount: 0 
+                }
+                const currentJupyterUrl = progressUpdate.jupyterUrl || jupyterUrl
+                
                 setTimeout(() => {
                     if (isMounted.current) {
-                      onSuccess(progressUpdate.podName!, progressUpdate.podStatus!, progressUpdate.jupyterUrl)
+                      onSuccess(currentPodName, currentPodStatus, currentJupyterUrl)
                     }
                   }, 1000)
             } else if (progressUpdate.phase === 'error') {
@@ -51,13 +74,17 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
           }
     });
 
-    window.electronAPI.kubernetes.deploy(config as any);
+    // Only trigger deployment once
+    if (!deploymentTriggered.current) {
+      deploymentTriggered.current = true;
+      window.electronAPI.kubernetes.deploy(config as any);
+    }
 
     return () => {
       isMounted.current = false
       removeListener();
     }
-  }, [config, onSuccess, onError])
+  }, [onSuccess, onError]) // Keep only the essential callbacks
 
 
   const handleGoBack = () => {
@@ -94,7 +121,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
       case 'error':
         return <XCircle className="h-8 w-8 text-red-500" />
       default:
-        return <AlertCircle className="h-8 w-8 text-yellow-500" />
+        return <Loader2 className="h-8 w-8 animate-spin text-blue-500" />
     }
   }
 
@@ -112,7 +139,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
       case 'error':
         return 'bg-red-50 border-red-200'
       default:
-        return 'bg-gray-50 border-gray-200'
+        return 'bg-blue-50 border-blue-200'
     }
   }
 
@@ -123,19 +150,19 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
       case 'validating-connection':
         return 'Validating Connection'
       case 'creating-manifests':
-        return 'Creating Deployment'
+        return isExistingDeployment ? 'Checking Existing Deployment' : 'Creating Deployment'
       case 'waiting-for-pod':
-        return 'Scheduling Pod'
+        return isExistingDeployment ? 'Connecting to Pod' : 'Scheduling Pod'
       case 'applying-manifests':
         return 'Starting Services'
       case 'setting-up-access':
-        return 'Setting Up Access'
+        return isExistingDeployment ? 'Establishing Connection' : 'Setting Up Access'
       case 'ready':
         return '🎉 Ready!'
       case 'error':
         return 'Deployment Failed'
       default:
-        return 'Processing...'
+        return 'Processing Deployment...'
     }
   }
 
@@ -148,8 +175,12 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
             Back to Configuration
           </Button>
           <div>
-            <h1 className="text-3xl font-bold">Deploying JupyterLab</h1>
-            <p className="text-muted-foreground">Setting up your Kubernetes pod...</p>
+            <h1 className="text-3xl font-bold">
+              {isExistingDeployment ? 'Connecting to JupyterLab' : 'Deploying JupyterLab'}
+            </h1>
+            <p className="text-muted-foreground">
+              {isExistingDeployment ? 'Reconnecting to your existing Kubernetes pod...' : 'Setting up your Kubernetes pod...'}
+            </p>
           </div>
         </div>
 
@@ -306,10 +337,12 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
             <Card className="border-green-200 bg-green-50">
               <CardHeader>
                 <CardTitle className="text-green-800 flex items-center gap-2">
-                  🚀 JupyterLab Ready
+                  🚀 JupyterLab {isExistingDeployment ? 'Reconnected' : 'Ready'}
                 </CardTitle>
                 <CardDescription className="text-green-700">
-                  Your JupyterLab instance is running and will open automatically
+                  {isExistingDeployment 
+                    ? 'Successfully reconnected to your existing JupyterLab instance'
+                    : 'Your JupyterLab instance is running and will open automatically'}
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -321,7 +354,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
                     </p>
                   </div>
                   <div className="text-center text-sm text-green-700">
-                    Redirecting to JupyterLab...
+                    {isExistingDeployment ? 'Reopening JupyterLab...' : 'Redirecting to JupyterLab...'}
                   </div>
                 </div>
               </CardContent>

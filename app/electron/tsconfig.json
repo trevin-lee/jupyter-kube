@@ -13,8 +13,6 @@
     "types": ["node", "electron"]
   },
   "include": [
-    "main.ts",
-    "preload.ts",
-    "logging-service.ts"
+    "*.ts"
   ]
 } 

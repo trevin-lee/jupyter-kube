@@ -54,4 +54,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
         return () => ipcRenderer.removeListener('k8s-deployment-progress', callback);
     }
   },
+
+  // Open external URL in user's default browser
+  openExternal: (url: string) => ipcRenderer.invoke('app:openExternal', url),
 }); 

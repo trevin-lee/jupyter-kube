@@ -43,6 +43,8 @@ export interface IElectronAPI {
     cancel: () => void;
     onProgress: (callback: (event: any, progress: DeploymentProgress) => void) => () => void;
   };
+
+  openExternal: (url: string) => Promise<void>;
 }
 
 declare global {

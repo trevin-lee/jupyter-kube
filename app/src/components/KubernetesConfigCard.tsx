@@ -32,7 +32,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     try {
       logger.info('🔍 Manual kubeconfig detection requested...')
       
-      // Reset state
+      // Reset state - user is explicitly requesting detection
       setKubeConfigChecked(false)
       
       // Call the Electron API to detect kubeconfig
@@ -117,11 +117,20 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   }
 
   const clearKubeConfig = () => {
+    logger.info('🧹 [1/4] Clear button clicked - starting clear process...')
+    logger.info('🧹 [2/4] Current config before clear:', { kubeConfigPath: config.kubeConfigPath, namespace: config.namespace })
+    
+    // Only update kubeConfigPath - the parent component will handle clearing namespace
     onConfigChange('kubeConfigPath', '')
-    onConfigChange('namespace', '')
+    logger.info('🧹 [3/4] Called onConfigChange for kubeConfigPath with empty string')
+    
+    // Clear local state
     setKubeConfigChecked(true)
     setDetectedNamespace(null)
     setAvailableNamespaces([])
+    setIsDetectingNamespace(false)
+    
+    logger.info('🧹 [4/4] Clear process complete - config should now be empty')
   }
 
   // Detect namespace when kubeconfig is available
@@ -160,13 +169,24 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 
   // Update states when config changes (from loaded config or user input)
   useEffect(() => {
+    logger.info('🔄 useEffect triggered - config.kubeConfigPath:', config.kubeConfigPath)
+    
     // Only set checked on initial load
     if (!kubeConfigChecked && config.kubeConfigPath !== undefined) {
       setKubeConfigChecked(true)
     }
     
+    // Clear detected namespace and available namespaces when kubeconfig is cleared
+    if (!config.kubeConfigPath || config.kubeConfigPath.trim() === '') {
+      setDetectedNamespace(null)
+      setAvailableNamespaces([])
+      logger.info('🧹 Config path is empty, cleared related state')
+      return
+    }
+    
     // Auto-detect namespace when kubeconfig becomes available
     if (config.kubeConfigPath && !detectedNamespace) {
+      logger.info('🔍 Auto-detecting namespace for:', config.kubeConfigPath)
       handleDetectNamespace()
     }
   }, [config.kubeConfigPath])
@@ -328,16 +348,30 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   )
 
   const renderKubeConfigSection = () => {
+    const configPath = config.kubeConfigPath
+    const hasConfigPath = configPath && configPath.trim() !== ''
+    
+    logger.info('🎨 Rendering kubeconfig section:', {
+      isScanning,
+      kubeConfigChecked,
+      configPath,
+      hasConfigPath
+    })
+    
     if (isScanning) {
+      logger.info('🎨 Rendering: Scanning state')
       return renderScanningState()
     }
     if (!kubeConfigChecked) {
+      logger.info('🎨 Rendering: Initial loading state')
       return renderInitialLoadingState()
     }
     // Check the actual config value instead of local state
-    if (config.kubeConfigPath && config.kubeConfigPath.trim() !== '') {
+    if (hasConfigPath) {
+      logger.info('🎨 Rendering: Config found state')
       return renderConfigFoundState()
     }
+    logger.info('🎨 Rendering: Config not found state')
     return renderConfigNotFoundState()
   }
 

@@ -1,46 +1,79 @@
-## OIDC Authentication with Kubernetes
+# OIDC Authentication with Kubernetes
 
-### Overview
+## Overview
 
-When using OpenID Connect (OIDC) authentication with Kubernetes, the `@kubernetes/client-node` library needs to execute external commands (like `kubectl` or `kubelogin`) as specified in the kubeconfig's exec authentication section. This can cause "spawn kubectl ENOENT" errors in packaged Electron applications.
+When using OpenID Connect (OIDC) authentication with Kubernetes, the `@kubernetes/client-node` library needs to execute external commands (like `kubectl` and the `kubectl-oidc_login` plugin) as specified in the kubeconfig's exec authentication section. This can cause errors in packaged Electron applications if these executables are not found.
 
-### The Problem
+## The Problem
 
 The issue occurs because:
-1. The `@kubernetes/client-node` library tries to spawn kubectl or other OIDC authentication helpers
+1. The `@kubernetes/client-node` library tries to spawn kubectl with the oidc-login subcommand
 2. In a packaged Electron app, these executables are not in the PATH
-3. The library doesn't provide a way to specify custom paths for these executables
+3. The error "unknown command 'oidc-login'" means kubectl is found but the OIDC plugin is missing
 
-### Solution
+## Solution
 
-Our solution automatically detects and configures the PATH to include kubectl and common OIDC authentication tools:
+Our solution automatically detects and configures the PATH to include kubectl and OIDC authentication plugins:
 
 1. **Automatic kubectl Detection**: At startup, the app searches for kubectl in common installation locations:
-   - `/usr/local/bin/kubectl` (Homebrew on macOS)
-   - `/usr/bin/kubectl` (Linux system install)
-   - `/opt/homebrew/bin/kubectl` (Homebrew on Apple Silicon)
-   - `~/.local/bin/kubectl` (User local install)
-   - `~/bin/kubectl` (User bin directory)
+   - `/usr/local/bin` (Homebrew on macOS)
+   - `/usr/bin` (Linux system install)
+   - `/opt/homebrew/bin` (Homebrew on Apple Silicon)
+   - `~/.local/bin` (User local install)
+   - `~/bin` (User bin directory)
    - Windows locations for kubectl.exe
 
-2. **PATH Configuration**: If kubectl is found, its directory is added to the PATH environment variable before any Kubernetes operations.
+2. **OIDC Plugin Detection**: The app also searches for the kubectl-oidc_login plugin in:
+   - `~/.krew/bin` (kubectl krew plugin directory)
+   - `/usr/local/bin`
+   - `/opt/homebrew/bin`
+   - All kubectl installation directories
 
-3. **OIDC Helper Detection**: The app also checks for common OIDC authentication helpers:
-   - `kubelogin`
-   - `kubectl-oidc_login`
-   - `kubectl-oidc-login`
+3. **PATH Configuration**: All directories containing kubectl or OIDC plugins are automatically added to the PATH environment variable before any Kubernetes operations.
 
-### Supported OIDC Providers
+## Installing the OIDC Plugin
+
+If you see the error "unknown command 'oidc-login'", you need to install the kubectl-oidc_login plugin:
+
+### Using kubectl krew (Recommended)
+```bash
+# Install krew if you haven't already
+kubectl krew install oidc-login
+```
+
+### Using Homebrew (macOS)
+```bash
+brew install int128/kubelogin/kubelogin
+```
+
+### Manual Installation
+1. Download the appropriate binary from [kubelogin releases](https://github.com/int128/kubelogin/releases)
+2. Rename it to `kubectl-oidc_login` (note the underscore)
+3. Place it in one of these directories:
+   - `/usr/local/bin/`
+   - `~/.krew/bin/`
+   - Any directory in your PATH
+
+### Verify Installation
+```bash
+# Check if the plugin is installed
+kubectl oidc-login --help
+
+# Check where it's installed
+which kubectl-oidc_login
+```
+
+## Supported OIDC Providers
 
 This solution works with any OIDC provider that uses exec authentication in kubeconfig, including:
-- Azure AD
-- Google Identity Platform
+- Azure AD (using kubelogin)
+- Google Identity Platform  
 - Okta
 - Keycloak
 - Dex
 - Any other OIDC-compliant provider
 
-### Example Kubeconfig with OIDC
+## Example Kubeconfig with OIDC
 
 ```yaml
 users:
@@ -57,7 +90,7 @@ users:
       - --oidc-client-secret=your-client-secret
 ```
 
-### Troubleshooting
+## Troubleshooting
 
 If you still encounter issues:
 
@@ -66,22 +99,21 @@ If you still encounter issues:
    - Windows: `choco install kubernetes-cli`
    - Linux: Follow the official Kubernetes documentation
 
-2. **Install OIDC authentication plugin**: Most OIDC setups require kubelogin:
-   - Using Krew: `kubectl krew install oidc-login`
-   - Using Homebrew: `brew install int128/kubelogin/kubelogin`
+2. **Check the logs**: The app logs show which executables were found:
+   - `[KubeConfigManager] Found kubectl at: /path/to/kubectl`
+   - `[KubeConfigManager] Found kubectl-oidc_login at: /path/to/kubectl-oidc_login`
+   - `[KubeConfigManager] Added to PATH for kubectl/OIDC: /usr/local/bin, ~/.krew/bin`
 
-3. **Check logs**: The app logs kubectl detection results. Check the logs for messages like:
-   - `[KubernetesService] Found kubectl at: /path/to/kubectl`
-   - `[KubernetesService] Added /path/to/kubectl to PATH for kubectl`
+3. **Restart the application**: After installing the OIDC plugin, you must restart the application for it to detect the new plugin.
 
-4. **Manual PATH configuration**: If automatic detection fails, you can manually add kubectl to your system PATH before starting the app.
+4. **Check PATH**: If automatic detection fails, ensure the plugin is in a standard location or add its directory to your system PATH before starting the app.
 
-### Implementation Details
+## Implementation Details
 
-The solution is implemented in three parts:
+The solution is implemented in:
 
-1. **KubeConfigManager.configureKubectlPath()**: Searches for kubectl and updates PATH
-2. **KubernetesService.setupEnvironmentForOIDC()**: Called before loading kubeconfig
+1. **KubeConfigManager.configureKubectlPath()**: Searches for kubectl and OIDC plugins in common locations and updates PATH
+2. **KubernetesService.setupEnvironmentForOIDC()**: Called before loading kubeconfig, delegates to KubeConfigManager
 3. **Main process initialization**: Configures kubectl path at app startup
 
-This ensures that kubectl is available whenever the Kubernetes client needs to execute it for OIDC authentication. 
+This ensures that kubectl and OIDC plugins are available whenever the Kubernetes client needs to execute them for authentication. 

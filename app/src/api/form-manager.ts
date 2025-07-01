@@ -49,12 +49,21 @@ export async function getConfigWithAutoDetection(): Promise<AppConfig> {
       }
     }
     
-    // Auto-detect kubeconfig if not already saved
-    if (!full.kubeConfig.kubeConfigPath) {
+    // Auto-detect kubeconfig if not already saved AND not explicitly cleared by user
+    // Only auto-detect on initial load (when kubeConfigPath is null, not empty string)
+    if (full.kubeConfig.kubeConfigPath === null || full.kubeConfig.kubeConfigPath === undefined) {
+      console.log('🔍 Auto-detecting kubeconfig on initial load...')
       const detectedKube = await window.electronAPI.kubeConfig.detect()
       if (detectedKube) {
         full.kubeConfig = detectedKube
+        console.log('✅ Auto-detected kubeconfig:', detectedKube.kubeConfigPath)
+      } else {
+        console.log('❌ No kubeconfig auto-detected')
       }
+    } else if (full.kubeConfig.kubeConfigPath === '') {
+      console.log('⏸️ Skipping auto-detection - user has explicitly cleared kubeconfig')
+    } else {
+      console.log('✅ Using existing kubeconfig:', full.kubeConfig.kubeConfigPath)
     }
     
     // Convert the persisted ElectronAppState shape to the renderer AppConfig shape
@@ -68,8 +77,8 @@ export async function getConfigWithAutoDetection(): Promise<AppConfig> {
         pvcs: [],
       },
       kubernetes: {
-        kubeConfigPath: full.kubeConfig.kubeConfigPath || '',
-        namespace: full.kubeConfig.namespace || '',
+        kubeConfigPath: full.kubeConfig.kubeConfigPath === null ? '' : full.kubeConfig.kubeConfigPath,
+        namespace: full.kubeConfig.namespace === null ? '' : full.kubeConfig.namespace,
       },
       git: {
         username: full.gitConfig.globalConfig.username,
@@ -102,9 +111,16 @@ export function autoSave(config: AppConfig) {
       window.electronAPI.gitConfig.update(config.git);
     }
     
-    // Update Kube configuration namespace
-    if (config.kubernetes && config.kubernetes.namespace) {
-      window.electronAPI.kubeConfig.update(config.kubernetes.namespace);
+    // Update Kube configuration
+    if (config.kubernetes) {
+      // Update kubeconfig path - preserve empty string as user's explicit clear action
+      const pathValue = config.kubernetes.kubeConfigPath === '' ? '' : (config.kubernetes.kubeConfigPath || null);
+      window.electronAPI.kubeConfig.updatePath(pathValue);
+      
+      // Update namespace
+      if (config.kubernetes.namespace) {
+        window.electronAPI.kubeConfig.update(config.kubernetes.namespace);
+      }
     }
     
     window.electronAPI.saveState()

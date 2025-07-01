@@ -34,9 +34,9 @@ export class FormStateManager {
         sshKeys: [] 
       },
       kubeConfig: {
-        kubeConfigPath: null,
+        kubeConfigPath: '',
         currentContext: null,
-        namespace: null,
+        namespace: '',
         availableNamespaces: []
       },
       hardwareConfig: defaultHardware

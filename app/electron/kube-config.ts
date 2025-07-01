@@ -173,39 +173,75 @@ export class KubeConfigManager {
   }
 
   /**
-   * Configures the PATH environment variable to include kubectl for OIDC authentication
-   * This is necessary because @kubernetes/client-node needs to spawn kubectl for exec authentication
+   * Configures the PATH environment variable to include kubectl and OIDC plugins for authentication
+   * This is necessary because @kubernetes/client-node needs to spawn kubectl and plugins for exec authentication
    */
   public static async configureKubectlPath(): Promise<void> {
-    const possibleKubectlPaths = [
+    const possiblePaths = [
       '/usr/local/bin',
       '/usr/bin',
       '/opt/homebrew/bin',
       path.join(os.homedir(), '.local', 'bin'),
       path.join(os.homedir(), 'bin'),
+      path.join(os.homedir(), '.krew', 'bin'), // kubectl krew plugin directory
       // Windows paths
       'C:\\Program Files\\kubectl',
       'C:\\kubectl',
       path.join(process.env.LOCALAPPDATA || '', 'Microsoft', 'WinGet', 'Packages'),
+      path.join(process.env.APPDATA || '', 'krew', 'bin'), // Windows krew directory
     ]
 
     const currentPath = process.env.PATH || ''
     const pathDirs = currentPath.split(path.delimiter)
+    const dirsToAdd: string[] = []
     
-    // Find kubectl in the system
-    for (const dir of possibleKubectlPaths) {
+    // Find kubectl and OIDC plugins in the system
+    for (const dir of possiblePaths) {
       if (!pathDirs.includes(dir)) {
-        const kubectlPath = path.join(dir, process.platform === 'win32' ? 'kubectl.exe' : 'kubectl')
         try {
-          await fs.promises.access(kubectlPath, fs.constants.X_OK)
-          // Add to PATH
-          process.env.PATH = `${dir}${path.delimiter}${currentPath}`
-          logger.info(`[KubeConfigManager] Added ${dir} to PATH for kubectl`)
-          return
+          // Check if directory exists
+          await fs.promises.access(dir, fs.constants.R_OK)
+          
+          // Look for kubectl and various OIDC plugins
+          const executableNames = [
+            'kubectl',
+            'kubectl-oidc_login',  // Common name for the plugin
+            'kubectl-oidc-login',  // Alternative naming
+            'kubelogin',          // Azure/general OIDC login tool
+          ]
+          
+          let foundExecutable = false
+          for (const execName of executableNames) {
+            const execPath = path.join(dir, process.platform === 'win32' ? `${execName}.exe` : execName)
+            try {
+              await fs.promises.access(execPath, fs.constants.X_OK)
+              foundExecutable = true
+              logger.info(`[KubeConfigManager] Found ${execName} at: ${execPath}`)
+            } catch {
+              // Continue checking other executables
+            }
+          }
+          
+          if (foundExecutable) {
+            dirsToAdd.push(dir)
+          }
         } catch (error) {
-          // Continue checking other paths
+          // Directory doesn't exist or isn't accessible
         }
       }
+    }
+    
+    // Add all found directories to PATH
+    if (dirsToAdd.length > 0) {
+      process.env.PATH = dirsToAdd.join(path.delimiter) + path.delimiter + currentPath
+      logger.info(`[KubeConfigManager] Added to PATH for kubectl/OIDC: ${dirsToAdd.join(', ')}`)
+      
+      // Log the final PATH for debugging
+      logger.debug(`[KubeConfigManager] Updated PATH: ${process.env.PATH}`)
+    } else {
+      logger.warn('[KubeConfigManager] No kubectl or OIDC authentication plugins found in common locations')
+      logger.warn('[KubeConfigManager] Current PATH: ' + currentPath)
+      logger.warn('[KubeConfigManager] You may need to install kubectl and kubectl-oidc_login plugin')
     }
   }
 }

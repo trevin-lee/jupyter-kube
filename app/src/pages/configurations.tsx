@@ -126,12 +126,30 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
 
   const handleKubernetesConfigChange = (field: string, value: string) => {
     if (!config) return
-    const updatedConfig = {
-      ...config,
-      kubernetes: { ...config.kubernetes, [field]: value }
-    }
-    setConfig(updatedConfig)
-    formManager.autoSave(updatedConfig)
+    
+    logger.info(`🔄 Kubernetes config change - Field: ${field}, Value: "${value}"`)
+    
+    setConfig(prevConfig => {
+      if (!prevConfig) return prevConfig
+      
+      const updatedConfig = {
+        ...prevConfig,
+        kubernetes: { ...prevConfig.kubernetes, [field]: value }
+      }
+      
+      // When clearing kubeConfigPath, also clear namespace to keep them in sync
+      if (field === 'kubeConfigPath' && value === '') {
+        updatedConfig.kubernetes.namespace = ''
+        logger.info('🔄 Also clearing namespace since kubeconfig was cleared')
+      }
+      
+      logger.info('🔄 Updated kubernetes config:', updatedConfig.kubernetes)
+      
+      // Auto-save with the updated config
+      formManager.autoSave(updatedConfig)
+      
+      return updatedConfig
+    })
   }
 
   const handleEnvironmentsChange = (environments: any[]) => {

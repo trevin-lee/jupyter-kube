@@ -27,6 +27,7 @@ import { BrowserWindow } from 'electron';
 import { ElectronAppState, DeploymentProgress, AppConfig } from '../src/types/app';
 import { DeploymentManager } from './deployment-manager';
 import { PortForwardManager } from './portforward-manager';
+import { KubeConfigManager } from './kube-config';
 
 export class KubernetesService {
     private kc: KubeConfig | null = null;
@@ -96,31 +97,10 @@ export class KubernetesService {
     }
 
     private async setupEnvironmentForOIDC(): Promise<void> {
-        // Find kubectl and add to PATH if needed
-        const kubectlDir = await this.findKubectlPath();
-        if (kubectlDir) {
-            const currentPath = process.env.PATH || '';
-            if (!currentPath.includes(kubectlDir)) {
-                process.env.PATH = `${kubectlDir}${path.delimiter}${currentPath}`;
-                logger.info(`[KubernetesService] Added ${kubectlDir} to PATH for kubectl`);
-            }
-        }
-        
-        // Also check for common OIDC helpers like kubelogin
-        const oidcHelpers = ['kubelogin', 'kubectl-oidc_login', 'kubectl-oidc-login'];
-        for (const helper of oidcHelpers) {
-            try {
-                const { exec } = await import('child_process');
-                const { promisify } = await import('util');
-                const execAsync = promisify(exec);
-                const { stdout } = await execAsync(`which ${helper}`);
-                if (stdout.trim()) {
-                    logger.info(`[KubernetesService] Found OIDC helper ${helper} at: ${stdout.trim()}`);
-                }
-            } catch (error) {
-                // Helper not found, continue
-            }
-        }
+        // Use the improved PATH configuration from KubeConfigManager
+        // This method now searches for kubectl and OIDC plugins in common locations
+        await KubeConfigManager.configureKubectlPath();
+        logger.info('[KubernetesService] Environment configured for OIDC authentication');
     }
 
     private async loadKubeConfig(config: ElectronAppState): Promise<void> {
@@ -161,12 +141,20 @@ export class KubernetesService {
                                 // Let's verify kubectl is available
                                 const kubectlDir = await this.findKubectlPath();
                                 if (!kubectlDir) {
-                                    const errorMsg = `Your Kubernetes configuration uses OIDC authentication which requires '${command}' to be installed on your system.\n\n` +
-                                        `Please ensure ${command} is installed and available in your PATH.\n\n` +
-                                        `Alternatively, you can use a different authentication method such as:\n` +
-                                        `- Client certificates\n` +
-                                        `- Service account tokens\n` +
-                                        `- Static tokens`;
+                                    const errorMsg = `Your Kubernetes configuration uses OIDC authentication which requires both kubectl and the OIDC login plugin.\n\n` +
+                                        `The error "unknown command 'oidc-login'" means kubectl is installed but the OIDC plugin is missing.\n\n` +
+                                        `To fix this, install the kubectl-oidc_login plugin:\n\n` +
+                                        `Using kubectl krew (recommended):\n` +
+                                        `  kubectl krew install oidc-login\n\n` +
+                                        `Using Homebrew (macOS):\n` +
+                                        `  brew install int128/kubelogin/kubelogin\n\n` +
+                                        `Manual installation:\n` +
+                                        `  Download from: https://github.com/int128/kubelogin/releases\n` +
+                                        `  Place kubectl-oidc_login in your PATH (e.g., /usr/local/bin/)\n\n` +
+                                        `Common installation locations checked:\n` +
+                                        `  ~/.krew/bin/kubectl-oidc_login\n` +
+                                        `  /usr/local/bin/kubectl-oidc_login\n` +
+                                        `  /opt/homebrew/bin/kubectl-oidc_login`;
                                     
                                     throw new Error(errorMsg);
                                 } else {
@@ -189,6 +177,27 @@ export class KubernetesService {
                     
                     throw new Error(errorMsg);
                 }
+                
+                // Check if this is an OIDC plugin error
+                if (error.message?.includes('unknown command') && error.message?.includes('oidc-login')) {
+                    const errorMsg = `Your Kubernetes configuration uses OIDC authentication but the kubectl-oidc_login plugin is not installed.\n\n` +
+                        `To fix this, install the kubectl-oidc_login plugin:\n\n` +
+                        `Using kubectl krew (recommended):\n` +
+                        `  kubectl krew install oidc-login\n\n` +
+                        `Using Homebrew (macOS):\n` +
+                        `  brew install int128/kubelogin/kubelogin\n\n` +
+                        `Manual installation:\n` +
+                        `  Download from: https://github.com/int128/kubelogin/releases\n` +
+                        `  Place kubectl-oidc_login in your PATH\n\n` +
+                        `The plugin should be installed in one of these locations:\n` +
+                        `  ~/.krew/bin/kubectl-oidc_login\n` +
+                        `  /usr/local/bin/kubectl-oidc_login\n` +
+                        `  /opt/homebrew/bin/kubectl-oidc_login\n\n` +
+                        `After installation, restart the application.`;
+                    
+                    throw new Error(errorMsg);
+                }
+                
                 throw error;
             }
             logger.info(`[KubernetesService] Loaded kubeconfig from ${config.kubeConfig.kubeConfigPath}`);

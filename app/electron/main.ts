@@ -235,6 +235,21 @@ ipcMain.handle('kube:update', (event, namespace) => {
     return true;
 });
 
+ipcMain.handle('kube:updatePath', (event, kubeConfigPath) => {
+    logger.info(`[Main] Updating kubeconfig path to: ${kubeConfigPath === '' ? 'empty string (cleared)' : kubeConfigPath || 'null'}`);
+    const currentConfig = kubeManager.getConfig();
+    kubeManager.setConfig({
+        ...currentConfig,
+        kubeConfigPath: kubeConfigPath,
+        // Clear namespace and other fields when path is explicitly cleared (empty string)
+        namespace: (kubeConfigPath === '' || !kubeConfigPath) ? '' : currentConfig.namespace,
+        currentContext: (kubeConfigPath === '' || !kubeConfigPath) ? null : currentConfig.currentContext,
+        availableNamespaces: (kubeConfigPath === '' || !kubeConfigPath) ? [] : currentConfig.availableNamespaces
+    });
+    formStateManager.saveState();
+    return true;
+});
+
 ipcMain.handle('kube:selectFile', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
         title: 'Select Kubeconfig File',

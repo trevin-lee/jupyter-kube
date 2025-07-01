@@ -41,6 +41,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   kubeConfig: {
     detect: () => ipcRenderer.invoke('kube:detect'),
     update: (namespace: string | null) => ipcRenderer.invoke('kube:update', namespace),
+    updatePath: (kubeConfigPath: string | null) => ipcRenderer.invoke('kube:updatePath', kubeConfigPath),
     selectFile: () => ipcRenderer.invoke('kube:selectFile'),
   },
 

@@ -11,14 +11,21 @@ import {
   GitBranch, 
   Server, 
   Monitor,
-  CheckCircle
+  CheckCircle,
+  ChevronDown
 } from "lucide-react";
 
 export default function Home() {
+  // Replace 'your-username/your-repo' with your actual GitHub repository
+  const GITHUB_REPO = "your-username/jupyter-kube"; // Update this!
+  const VERSION = "1.0.0";
+  
   const downloadLinks = {
-    windows: "#", // Replace with actual download links
-    mac: "#",
-    linux: "#"
+    windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher.Setup.${VERSION}.exe`,
+    mac: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}-arm64.dmg`,
+    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.dmg`,
+    linux: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.AppImage`,
+    linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/jupyter-kube_${VERSION}_amd64.deb`
   };
 
   return (
@@ -59,24 +66,48 @@ export default function Home() {
           
           {/* Download Buttons */}
           <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
-            <Button size="lg" className="flex items-center gap-2" asChild>
-              <a href={downloadLinks.mac}>
-                <Download className="h-5 w-5" />
-                Download for macOS
-              </a>
-            </Button>
+            <div className="relative group">
+              <Button size="lg" className="flex items-center gap-2" asChild>
+                <a href={downloadLinks.mac}>
+                  <Download className="h-5 w-5" />
+                  Download for macOS
+                  <ChevronDown className="h-4 w-4 ml-1" />
+                </a>
+              </Button>
+              <div className="absolute left-0 right-0 top-full mt-2 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                <a href={downloadLinks.mac} className="block px-4 py-2 hover:bg-muted text-sm">
+                  Apple Silicon (M1/M2/M3)
+                </a>
+                <a href={downloadLinks.macIntel} className="block px-4 py-2 hover:bg-muted text-sm">
+                  Intel Mac
+                </a>
+              </div>
+            </div>
+            
             <Button size="lg" variant="outline" className="flex items-center gap-2" asChild>
               <a href={downloadLinks.windows}>
                 <Download className="h-5 w-5" />
                 Download for Windows
               </a>
             </Button>
-            <Button size="lg" variant="outline" className="flex items-center gap-2" asChild>
-              <a href={downloadLinks.linux}>
-                <Download className="h-5 w-5" />
-                Download for Linux
-              </a>
-            </Button>
+            
+            <div className="relative group">
+              <Button size="lg" variant="outline" className="flex items-center gap-2" asChild>
+                <a href={downloadLinks.linux}>
+                  <Download className="h-5 w-5" />
+                  Download for Linux
+                  <ChevronDown className="h-4 w-4 ml-1" />
+                </a>
+              </Button>
+              <div className="absolute left-0 right-0 top-full mt-2 bg-background border rounded-md shadow-lg opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all">
+                <a href={downloadLinks.linux} className="block px-4 py-2 hover:bg-muted text-sm">
+                  AppImage (Universal)
+                </a>
+                <a href={downloadLinks.linuxDeb} className="block px-4 py-2 hover:bg-muted text-sm">
+                  Debian/Ubuntu (.deb)
+                </a>
+              </div>
+            </div>
           </div>
 
           <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
@@ -280,12 +311,19 @@ export default function Home() {
               <div className="text-center">
                 <h3 className="font-semibold mb-2">macOS</h3>
                 <p className="text-sm text-muted-foreground mb-4">macOS 10.15+</p>
-                <Button className="w-full" asChild>
-                  <a href={downloadLinks.mac}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </a>
-                </Button>
+                <div className="space-y-2">
+                  <Button className="w-full" variant="default" asChild>
+                    <a href={downloadLinks.mac}>
+                      <Download className="h-4 w-4 mr-2" />
+                      Apple Silicon
+                    </a>
+                  </Button>
+                  <Button className="w-full" variant="outline" size="sm" asChild>
+                    <a href={downloadLinks.macIntel}>
+                      Intel Mac
+                    </a>
+                  </Button>
+                </div>
               </div>
             </Card>
 
@@ -296,7 +334,7 @@ export default function Home() {
                 <Button className="w-full" asChild>
                   <a href={downloadLinks.windows}>
                     <Download className="h-4 w-4 mr-2" />
-                    Download
+                    Download Installer
                   </a>
                 </Button>
               </div>
@@ -306,12 +344,19 @@ export default function Home() {
               <div className="text-center">
                 <h3 className="font-semibold mb-2">Linux</h3>
                 <p className="text-sm text-muted-foreground mb-4">Ubuntu 18.04+</p>
-                <Button className="w-full" asChild>
-                  <a href={downloadLinks.linux}>
-                    <Download className="h-4 w-4 mr-2" />
-                    Download
-                  </a>
-                </Button>
+                <div className="space-y-2">
+                  <Button className="w-full" variant="default" asChild>
+                    <a href={downloadLinks.linux}>
+                      <Download className="h-4 w-4 mr-2" />
+                      AppImage
+                    </a>
+                  </Button>
+                  <Button className="w-full" variant="outline" size="sm" asChild>
+                    <a href={downloadLinks.linuxDeb}>
+                      .deb Package
+                    </a>
+                  </Button>
+                </div>
               </div>
             </Card>
           </div>

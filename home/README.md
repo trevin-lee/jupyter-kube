@@ -1,6 +1,73 @@
 # NRP Jupyter Launcher Website
 
-The official website for NRP Jupyter Launcher, a desktop application designed for the **National Research Platform (NRP)** Kubernetes cluster. Deploy and manage JupyterLab environments with NRP-optimized configurations.
+This is the official website for the NRP Jupyter Launcher application, built with Next.js and deployed to Vercel.
+
+## Development
+
+```bash
+# Install dependencies
+npm install
+
+# Run development server
+npm run dev
+
+# Build for production
+npm run build
+
+# Run production server
+npm start
+```
+
+## Deployment
+
+The website is automatically deployed to Vercel when you push to the main branch. The `vercel.json` file in the root directory configures the build settings.
+
+## Updating Download Links
+
+The download links are configured in `src/app/page.tsx`. To update them:
+
+1. Update the `GITHUB_REPO` constant with your GitHub repository (format: `username/repo`)
+2. Update the `VERSION` constant when releasing a new version
+
+## Release Process
+
+To release a new version of the application:
+
+1. Update the version in `app/package.json`
+2. Update the version in `home/src/app/page.tsx`
+3. Commit and push your changes
+4. Create a new tag:
+   ```bash
+   git tag v1.0.0
+   git push origin v1.0.0
+   ```
+5. The GitHub Actions workflow will automatically:
+   - Build the Electron app for all platforms
+   - Create a GitHub release
+   - Upload the built files to the release
+
+6. The website download links will automatically work once the release is published
+
+## File Naming Convention
+
+The built files follow this naming pattern:
+- macOS ARM: `NRP.Jupyter.Launcher-{version}-arm64.dmg`
+- macOS Intel: `NRP.Jupyter.Launcher-{version}.dmg`
+- Windows: `NRP.Jupyter.Launcher.Setup.{version}.exe`
+- Linux AppImage: `NRP.Jupyter.Launcher-{version}.AppImage`
+- Linux Deb: `jupyter-kube_{version}_amd64.deb`
+
+## Environment Variables
+
+No environment variables are required for the website. All configuration is done through the code.
+
+## Tech Stack
+
+- Next.js 15
+- React 19
+- Tailwind CSS
+- shadcn/ui components
+- Deployed on Vercel
 
 ## About
 
@@ -13,33 +80,3 @@ NRP Jupyter Launcher provides:
 - **Real-time Monitoring**: Live deployment progress and resource monitoring
 
 **⚠️ Important**: This tool is designed exclusively for the National Research Platform's Kubernetes cluster and will not work with other Kubernetes clusters.
-
-## Tech Stack
-
-- **Framework**: Next.js 15 with App Router
-- **Styling**: Tailwind CSS
-- **UI Components**: shadcn/ui
-- **Icons**: Lucide React
-- **Typography**: Geist Sans & Geist Mono
-
-## Development
-
-```bash
-# Install dependencies
-npm install
-
-# Start development server
-npm run dev
-
-# Build for production
-npm run build
-
-# Start production server
-npm start
-```
-
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-## Deployment
-
-This website is designed to be deployed on Vercel for optimal performance and seamless integration with Next.js.

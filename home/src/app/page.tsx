@@ -20,11 +20,11 @@ export default function Home() {
   const VERSION = "1.0.4";
   
   const downloadLinks = {
-    windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher.Setup.${VERSION}.exe`,
-    mac: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}-arm64.dmg`,
-    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.dmg`,
-    linux: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.AppImage`,
-    linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/jupyter-kube_${VERSION}_amd64.deb`
+    windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher.Setup.1.0.2.exe`,
+    mac: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-1.0.2-arm64.dmg`,
+    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-1.0.2.dmg`,
+    linux: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-1.0.2.AppImage`,
+    linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/jupyter-kube_1.0.2_amd64.deb`
   };
 
   return (

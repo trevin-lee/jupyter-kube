@@ -17,7 +17,7 @@ import {
 
 export default function Home() {
   // Replace 'your-username/your-repo' with your actual GitHub repository
-  const GITHUB_REPO = "your-username/jupyter-kube"; // Update this!
+  const GITHUB_REPO = "trevin-lee/jupyter-kube"; // Update this!
   const VERSION = "1.0.0";
   
   const downloadLinks = {
@@ -154,7 +154,7 @@ export default function Home() {
               <CardContent>
                 <CardDescription>
                   Deploy JupyterLab directly to the National Research Platform with automated pod management 
-                  and resource allocation configured for NRP's infrastructure.
+                  and resource allocation configured for NRP&apos;s infrastructure.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -172,7 +172,7 @@ export default function Home() {
               <CardContent>
                 <CardDescription>
                   Automatically detects NRP kubeconfig, namespaces, and cluster settings. 
-                  Pre-configured for NRP's authentication and networking requirements.
+                  Pre-configured for NRP&apos;s authentication and networking requirements.
                 </CardDescription>
               </CardContent>
             </Card>

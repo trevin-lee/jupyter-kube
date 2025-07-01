@@ -18,7 +18,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 }) => {
   const kubeConfigInputRef = useRef<HTMLInputElement>(null)
   const [kubeDragActive, setKubeDragActive] = useState(false)
-  const [kubeConfigFound, setKubeConfigFound] = useState(false)
   const [kubeConfigChecked, setKubeConfigChecked] = useState(false)
   const [isScanning, setIsScanning] = useState(false)
   
@@ -35,7 +34,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       
       // Reset state
       setKubeConfigChecked(false)
-      setKubeConfigFound(false)
       
       // Call the Electron API to detect kubeconfig
       const detection = await window.electronAPI.kubeConfig.detect()
@@ -43,7 +41,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       
       if (detection && detection.kubeConfigPath) {
         onConfigChange('kubeConfigPath', detection.kubeConfigPath)
-        setKubeConfigFound(true)
         logger.info('✅ Kubeconfig detected and set:', detection.kubeConfigPath)
         if(detection.namespace) {
           onConfigChange('namespace', detection.namespace)
@@ -54,13 +51,11 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 
       } else {
         onConfigChange('kubeConfigPath', '')
-        setKubeConfigFound(false)
         logger.error('❌ No kubeconfig found')
       }
     } catch (error) {
       logger.error('❌ Kubeconfig detection failed:', error)
       onConfigChange('kubeConfigPath', '')
-      setKubeConfigFound(false)
     }
     
     setKubeConfigChecked(true)
@@ -74,7 +69,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       
       if (result && result.kubeConfigPath) {
         onConfigChange('kubeConfigPath', result.kubeConfigPath)
-        setKubeConfigFound(true)
         setKubeConfigChecked(true)
         logger.info('✅ Kubeconfig file selected:', result.kubeConfigPath)
         
@@ -95,7 +89,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     const file = event.target.files?.[0]
     if (file) {
       onConfigChange('kubeConfigPath', `${(file as any).path}`)
-      setKubeConfigFound(true)
       setKubeConfigChecked(true)
     }
   }
@@ -119,7 +112,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     if (files?.[0]) {
       const file = files[0]
       onConfigChange('kubeConfigPath', `${(file as any).path}`)
-      setKubeConfigFound(true)
       setKubeConfigChecked(true)
     }
   }
@@ -127,7 +119,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   const clearKubeConfig = () => {
     onConfigChange('kubeConfigPath', '')
     onConfigChange('namespace', '')
-    setKubeConfigFound(false)
     setKubeConfigChecked(true)
     setDetectedNamespace(null)
     setAvailableNamespaces([])
@@ -169,10 +160,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 
   // Update states when config changes (from loaded config or user input)
   useEffect(() => {
-    // Always sync kubeConfigFound with the actual config value
-    const hasConfig = !!config.kubeConfigPath && config.kubeConfigPath.trim() !== ''
-    setKubeConfigFound(hasConfig)
-    
     // Only set checked on initial load
     if (!kubeConfigChecked && config.kubeConfigPath !== undefined) {
       setKubeConfigChecked(true)

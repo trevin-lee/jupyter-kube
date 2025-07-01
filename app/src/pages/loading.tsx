@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react'
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '../components/ui/card'
 import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
-import { Loader2, CheckCircle, XCircle, AlertCircle, ArrowLeft, Server, Rocket } from 'lucide-react'
+import { Loader2, CheckCircle, XCircle, ArrowLeft, Server, Rocket } from 'lucide-react'
 import { AppConfig, PodStatus, DeploymentProgress } from '../types/app'
 import { getGpuDisplayName } from '../api/utils'
 import logger from '../api/logger'
@@ -32,7 +32,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
   useEffect(() => {
     isMounted.current = true
 
-    const removeListener = window.electronAPI.kubernetes.onProgress((event, progressUpdate) => {
+    const removeListener = window.electronAPI.kubernetes.onProgress((_event, progressUpdate) => {
         if (isMounted.current) {
             setPhase(progressUpdate.phase)
             setProgress(progressUpdate.message)
@@ -93,18 +93,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
     onBack()
   }
 
-  // Helper function to get progress message based on pod status
-  const getProgressMessage = (status: PodStatus): string => {
-    if (status.status === 'Pending') {
-      return 'Pod is pending... (pulling images, scheduling)'
-    } else if (status.status === 'Running' && !status.ready) {
-      return 'Pod is running but not ready... (containers starting up)'
-    } else if (status.status === 'Unknown') {
-      return 'Pod status unknown... (checking with cluster)'
-    } else {
-      return `Pod status: ${status.status} (${status.phase})`
-    }
-  }
+
 
   const getPhaseIcon = () => {
     switch (phase) {

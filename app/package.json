@@ -69,9 +69,9 @@
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.yourcompany.jupyter-kube",
-    "productName": "Jupyter Kube",
-    "copyright": "Copyright © 2024 Your Name",
+    "appId": "com.nrp.jupyter-launcher",
+    "productName": "NRP Jupyter Launcher",
+    "copyright": "Copyright © 2025 Trevin Lee",
     "directories": {
       "output": "release",
       "buildResources": "assets"

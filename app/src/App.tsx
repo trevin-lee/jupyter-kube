@@ -12,7 +12,6 @@ const App: React.FC = () => {
   const [deployConfig, setDeployConfig] = useState<AppConfig | null>(null)
   const [podName, setPodName] = useState<string>('')
   const [podStatus, setPodStatus] = useState<PodStatus | null>(null)
-  const [error, setError] = useState<string>('')
   const [jupyterUrl, setJupyterUrl] = useState<string>('')
   const [resetDeployState, setResetDeployState] = useState<boolean>(false)
 
@@ -20,7 +19,6 @@ const App: React.FC = () => {
     logger.info('🚀 Starting deployment with config:', config)
     setDeployConfig(config)
     setCurrentPage('loading')
-    setError('')
   }
 
   const handleDeploySuccess = (deployedPodName: string, status: PodStatus, deployedJupyterUrl?: string) => {
@@ -38,7 +36,6 @@ const App: React.FC = () => {
 
   const handleDeployError = (errorMessage: string) => {
     logger.error('❌ Deployment failed:', errorMessage)
-    setError(errorMessage)
     // Stay on loading page to show error, or optionally go back to config
     // setCurrentPage('configurations')
   }
@@ -46,7 +43,6 @@ const App: React.FC = () => {
   const handleBackToConfig = () => {
     logger.info('🔙 Going back to configuration')
     setCurrentPage('configurations')
-    setError('')
     setResetDeployState(true)
     // Reset the flag after a brief delay
     setTimeout(() => setResetDeployState(false), 100)

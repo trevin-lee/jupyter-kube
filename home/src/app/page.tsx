@@ -17,7 +17,6 @@ import {
 export default function Home() {
   // Replace 'your-username/your-repo' with your actual GitHub repository
   const GITHUB_REPO = "trevin-lee/jupyter-kube"; // Update this!
-  const VERSION = "1.0.2";
   
   const downloadLinks = {
     windows: `https://github.com/${GITHUB_REPO}/releases/download/v1.0.2/NRP.Jupyter.Launcher.Setup.1.0.1.exe`,

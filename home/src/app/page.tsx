@@ -17,13 +17,14 @@ import {
 export default function Home() {
   // Replace 'your-username/your-repo' with your actual GitHub repository
   const GITHUB_REPO = "trevin-lee/jupyter-kube"; // Update this!
+  const VERSION = "1.0.4";
   
   const downloadLinks = {
-    windows: `https://github.com/${GITHUB_REPO}/releases/download/v1.0.2/NRP.Jupyter.Launcher.Setup.1.0.1.exe`,
-    mac: `https://github.com/${GITHUB_REPO}/releases/download/v1.0.2/NRP.Jupyter.Launcher-1.0.1-arm64.dmg`,
-    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v1.0.2/NRP.Jupyter.Launcher-1.0.1.dmg`,
-    linux: `https://github.com/${GITHUB_REPO}/releases/download/v1.0.2/NRP.Jupyter.Launcher-1.0.1.AppImage`,
-    linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v1.0.2/jupyter-kube_1.0.1_amd64.deb`
+    windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher.Setup.${VERSION}.exe`,
+    mac: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}-arm64.dmg`,
+    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.dmg`,
+    linux: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.AppImage`,
+    linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/jupyter-kube_${VERSION}_amd64.deb`
   };
 
   return (
@@ -51,7 +52,7 @@ export default function Home() {
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
           <Badge variant="secondary" className="mb-4">
-            Version 1.0.2
+            Version 1.0.4
           </Badge>
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Deploy JupyterLab to the
@@ -378,7 +379,7 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <Badge variant="outline">v1.0.2</Badge>
+              <Badge variant="outline">v1.0.4</Badge>
               <span className="text-sm text-muted-foreground">
                 Open Source • MIT License
               </span>

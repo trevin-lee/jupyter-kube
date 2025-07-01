@@ -1,102 +1,347 @@
 import Image from "next/image";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { 
+  Download, 
+  Container, 
+  FolderOpen, 
+  Play, 
+  GitBranch, 
+  Server, 
+  Monitor,
+  CheckCircle
+} from "lucide-react";
 
 export default function Home() {
-  return (
-    <div className="grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20 font-[family-name:var(--font-geist-sans)]">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
-        />
-        <ol className="list-inside list-decimal text-sm/6 text-center sm:text-left font-[family-name:var(--font-geist-mono)]">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] px-1 py-0.5 rounded font-[family-name:var(--font-geist-mono)] font-semibold">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
+  const downloadLinks = {
+    windows: "#", // Replace with actual download links
+    mac: "#",
+    linux: "#"
+  };
 
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+  return (
+    <div className="min-h-screen bg-background">
+      {/* Header */}
+      <header className="border-b">
+        <div className="container mx-auto px-4 py-6">
+          <div className="flex items-center gap-3">
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
+              src="/jupyter-kube.png"
+              alt="NRP Jupyter Launcher"
+              width={40}
+              height={40}
+              className="rounded-lg"
             />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+            <div>
+              <h1 className="text-xl font-semibold">NRP Jupyter Launcher</h1>
+              <p className="text-sm text-muted-foreground">National Research Platform Jupyter Environment Manager</p>
+            </div>
+          </div>
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
-          />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
+      </header>
+
+      {/* Hero Section */}
+      <section className="container mx-auto px-4 py-16">
+        <div className="text-center max-w-4xl mx-auto">
+          <Badge variant="secondary" className="mb-4">
+            Version 1.0.0
+          </Badge>
+          <h1 className="text-4xl md:text-6xl font-bold mb-6">
+            Deploy JupyterLab to the
+            <span className="text-primary"> National Research Platform</span>
+          </h1>
+          <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
+            A desktop application designed for the <strong>National Research Platform (NRP)</strong> Kubernetes cluster. 
+            Deploy and manage JupyterLab environments with NRP-optimized configuration.
+          </p>
+          
+          {/* Download Buttons */}
+          <div className="flex flex-col sm:flex-row gap-4 justify-center mb-12">
+            <Button size="lg" className="flex items-center gap-2" asChild>
+              <a href={downloadLinks.mac}>
+                <Download className="h-5 w-5" />
+                Download for macOS
+              </a>
+            </Button>
+            <Button size="lg" variant="outline" className="flex items-center gap-2" asChild>
+              <a href={downloadLinks.windows}>
+                <Download className="h-5 w-5" />
+                Download for Windows
+              </a>
+            </Button>
+            <Button size="lg" variant="outline" className="flex items-center gap-2" asChild>
+              <a href={downloadLinks.linux}>
+                <Download className="h-5 w-5" />
+                Download for Linux
+              </a>
+            </Button>
+          </div>
+
+          <div className="flex items-center justify-center gap-8 text-sm text-muted-foreground">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              Free & Open Source
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              Cross Platform
+            </div>
+            <div className="flex items-center gap-2">
+              <CheckCircle className="h-4 w-4 text-green-600" />
+              No Registration Required
+            </div>
+          </div>
+        </div>
+      </section>
+
+    
+
+      {/* Features Section */}
+      <section className="bg-muted/50 py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">Features</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Built for the National Research Platform with configurations optimized for research computing workloads.
+            </p>
+          </div>
+
+          <div className="max-w-5xl mx-auto">
+            <div className="grid md:grid-cols-2 gap-6">
+            {/* Kubernetes Integration */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Container className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle>NRP-Optimized</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Deploy JupyterLab directly to the National Research Platform with automated pod management 
+                  and resource allocation configured for NRP's infrastructure.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            {/* Auto Configuration */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <FolderOpen className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle>Auto Configuration</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Automatically detects NRP kubeconfig, namespaces, and cluster settings. 
+                  Pre-configured for NRP's authentication and networking requirements.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            {/* One-Click Deploy */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Play className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle>One-Click Deploy</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Launch configured JupyterLab environments with custom hardware requirements, 
+                  conda environments, and Git integration.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            {/* Environment Management */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Server className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle>Environment Management</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Create custom conda environments with specific Python versions and packages. 
+                  Includes pre-configured data science packages.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            {/* Git Integration */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <GitBranch className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle>Git Integration</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Clone repositories, configure SSH keys, and integrate with existing 
+                  Git workflows during deployment.
+                </CardDescription>
+              </CardContent>
+            </Card>
+
+            {/* Real-time Monitoring */}
+            <Card>
+              <CardHeader>
+                <div className="flex items-center gap-3">
+                  <div className="p-2 bg-primary/10 rounded-lg">
+                    <Monitor className="h-6 w-6 text-primary" />
+                  </div>
+                  <CardTitle>Real-time Monitoring</CardTitle>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <CardDescription>
+                  Monitor deployment progress, pod status, and resource usage with live updates 
+                  and logging throughout the deployment process.
+                </CardDescription>
+              </CardContent>
+            </Card>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* How It Works */}
+      <section className="py-16">
+        <div className="container mx-auto px-4">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-bold mb-4">How It Works</h2>
+            <p className="text-muted-foreground max-w-2xl mx-auto">
+              Deploy JupyterLab to NRP in three steps
+            </p>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-4xl mx-auto">
+            <div className="text-center">
+              <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+                1
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Configure</h3>
+              <p className="text-muted-foreground">
+                Configure Kubernetes connection, environment settings, and hardware requirements
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+                2
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Deploy</h3>
+              <p className="text-muted-foreground">
+                Deploy JupyterLab environment with automatic creation and configuration
+              </p>
+            </div>
+
+            <div className="text-center">
+              <div className="w-12 h-12 bg-primary text-primary-foreground rounded-full flex items-center justify-center mx-auto mb-4 text-xl font-bold">
+                3
+              </div>
+              <h3 className="text-xl font-semibold mb-2">Code</h3>
+              <p className="text-muted-foreground">
+                Access JupyterLab environment through the app or web browser
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Download Section */}
+      <section className="bg-muted/50 py-16">
+        <div className="container mx-auto px-4 text-center">
+          <h2 className="text-3xl font-bold mb-4">Download</h2>
+          <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
+            Download NRP Jupyter Launcher for your platform to deploy JupyterLab environments to the 
+            National Research Platform. <strong>Requires NRP cluster access.</strong>
+          </p>
+          
+          <div className="grid sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
+            <Card className="p-6">
+              <div className="text-center">
+                <h3 className="font-semibold mb-2">macOS</h3>
+                <p className="text-sm text-muted-foreground mb-4">macOS 10.15+</p>
+                <Button className="w-full" asChild>
+                  <a href={downloadLinks.mac}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </a>
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="text-center">
+                <h3 className="font-semibold mb-2">Windows</h3>
+                <p className="text-sm text-muted-foreground mb-4">Windows 10+</p>
+                <Button className="w-full" asChild>
+                  <a href={downloadLinks.windows}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </a>
+                </Button>
+              </div>
+            </Card>
+
+            <Card className="p-6">
+              <div className="text-center">
+                <h3 className="font-semibold mb-2">Linux</h3>
+                <p className="text-sm text-muted-foreground mb-4">Ubuntu 18.04+</p>
+                <Button className="w-full" asChild>
+                  <a href={downloadLinks.linux}>
+                    <Download className="h-4 w-4 mr-2" />
+                    Download
+                  </a>
+                </Button>
+              </div>
+            </Card>
+          </div>
+        </div>
+      </section>
+
+      {/* Footer */}
+      <footer className="border-t py-8">
+        <div className="container mx-auto px-4">
+          <div className="flex flex-col md:flex-row justify-between items-center gap-4">
+            <div className="flex items-center gap-3">
+              <Image
+                src="/jupyter-kube.png"
+                alt="NRP Jupyter Launcher"
+                width={24}
+                height={24}
+                className="rounded"
+              />
+              <span className="text-sm text-muted-foreground">
+                © 2025 NRP Jupyter Launcher. Built for the National Research Platform community.
+              </span>
+            </div>
+            <div className="flex items-center gap-4">
+              <Badge variant="outline">v1.0.0</Badge>
+              <span className="text-sm text-muted-foreground">
+                Open Source • MIT License
+              </span>
+            </div>
+          </div>
+        </div>
       </footer>
     </div>
   );

@@ -1,0 +1,20 @@
+# Ignore the main app directory
+/app
+
+# Ignore other project files not related to the website
+/docker
+/debug-ssh.sh
+
+# Ignore common development files
+node_modules
+.git
+.env
+.env.local
+.env.production.local
+.env.development.local
+
+# Ignore build outputs from main app
+/app/dist-electron
+/app/release
+
+# Keep only the home directory for website deployment 

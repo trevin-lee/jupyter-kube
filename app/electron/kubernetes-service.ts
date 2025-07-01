@@ -1,3 +1,9 @@
+import * as path from 'path';
+import * as fs from 'fs';
+import * as os from 'os';
+import { app } from 'electron';
+import { execFileSync } from 'child_process';
+
 // type-only for compile-time helpers (no runtime import)
 import type { KubeConfig, CoreV1Api, AppsV1Api, Watch, PortForward } from '@kubernetes/client-node';
 
@@ -48,30 +54,163 @@ export class KubernetesService {
         }
     }
 
+    private async findKubectlPath(): Promise<string | null> {
+        const { exec } = await import('child_process');
+        const { promisify } = await import('util');
+        const execAsync = promisify(exec);
+        
+        // Common kubectl locations
+        const possiblePaths = [
+            '/usr/local/bin/kubectl',
+            '/usr/bin/kubectl',
+            '/opt/homebrew/bin/kubectl',
+            path.join(os.homedir(), '.local', 'bin', 'kubectl'),
+            path.join(os.homedir(), 'bin', 'kubectl'),
+        ];
+        
+        // Check if kubectl is already in PATH
+        try {
+            const { stdout } = await execAsync('which kubectl');
+            const kubectlPath = stdout.trim();
+            if (kubectlPath) {
+                logger.info(`[KubernetesService] Found kubectl in PATH: ${kubectlPath}`);
+                return path.dirname(kubectlPath);
+            }
+        } catch (error) {
+            // kubectl not in PATH, continue checking known locations
+        }
+        
+        // Check common locations
+        for (const kubectlPath of possiblePaths) {
+            try {
+                await fs.promises.access(kubectlPath, fs.constants.X_OK);
+                logger.info(`[KubernetesService] Found kubectl at: ${kubectlPath}`);
+                return path.dirname(kubectlPath);
+            } catch (error) {
+                // Continue checking other paths
+            }
+        }
+        
+        logger.warn('[KubernetesService] kubectl not found in common locations');
+        return null;
+    }
+
+    private async setupEnvironmentForOIDC(): Promise<void> {
+        // Find kubectl and add to PATH if needed
+        const kubectlDir = await this.findKubectlPath();
+        if (kubectlDir) {
+            const currentPath = process.env.PATH || '';
+            if (!currentPath.includes(kubectlDir)) {
+                process.env.PATH = `${kubectlDir}${path.delimiter}${currentPath}`;
+                logger.info(`[KubernetesService] Added ${kubectlDir} to PATH for kubectl`);
+            }
+        }
+        
+        // Also check for common OIDC helpers like kubelogin
+        const oidcHelpers = ['kubelogin', 'kubectl-oidc_login', 'kubectl-oidc-login'];
+        for (const helper of oidcHelpers) {
+            try {
+                const { exec } = await import('child_process');
+                const { promisify } = await import('util');
+                const execAsync = promisify(exec);
+                const { stdout } = await execAsync(`which ${helper}`);
+                if (stdout.trim()) {
+                    logger.info(`[KubernetesService] Found OIDC helper ${helper} at: ${stdout.trim()}`);
+                }
+            } catch (error) {
+                // Helper not found, continue
+            }
+        }
+    }
+
     private async loadKubeConfig(config: ElectronAppState): Promise<void> {
         this.sendProgress({ phase: 'initializing', message: 'Loading Kubernetes configuration...', progress: 5 });
+        
+        // Set up environment for OIDC before loading kubeconfig
+        await this.setupEnvironmentForOIDC();
+        
         const k8s = await getK8s();
         if (!this.kc) this.kc = new k8s.KubeConfig();
+        
         if (config.kubeConfig.kubeConfigPath) {
             const fs = await import('fs/promises');
             const fileContent = await fs.readFile(config.kubeConfig.kubeConfigPath, { encoding: 'utf8' });
-            this.kc.loadFromString(fileContent);
             
-            // Log cluster info for debugging
-            const cluster = this.kc.getCurrentCluster();
-            if (cluster) {
-                logger.info(`[KubernetesService] Connected to cluster: ${cluster.name} at ${cluster.server}`);
-                if (cluster.skipTLSVerify) {
-                    logger.info('[KubernetesService] Cluster is configured to skip TLS verification');
+            try {
+                // Check if kubeconfig uses exec authentication
+                const yaml = await import('js-yaml');
+                const parsedConfig = yaml.load(fileContent) as any;
+                
+                if (parsedConfig.users) {
+                    const hasExecAuth = parsedConfig.users.some((user: any) => 
+                        user.user?.exec?.command
+                    );
+                    
+                    if (hasExecAuth) {
+                        logger.warn('[KubernetesService] Kubeconfig uses exec authentication');
+                        
+                        // Check if the exec commands are available
+                        const execUsers = parsedConfig.users.filter((user: any) => user.user?.exec?.command);
+                        for (const user of execUsers) {
+                            const command = user.user.exec.command;
+                            logger.info(`[KubernetesService] User ${user.name} requires exec command: ${command}`);
+                            
+                            // For OIDC, check if kubectl is actually available before throwing error
+                            if (command.includes('kubectl') || command.includes('oidc-login')) {
+                                // We already set up the environment for OIDC in setupEnvironmentForOIDC
+                                // Let's verify kubectl is available
+                                const kubectlDir = await this.findKubectlPath();
+                                if (!kubectlDir) {
+                                    const errorMsg = `Your Kubernetes configuration uses OIDC authentication which requires '${command}' to be installed on your system.\n\n` +
+                                        `Please ensure ${command} is installed and available in your PATH.\n\n` +
+                                        `Alternatively, you can use a different authentication method such as:\n` +
+                                        `- Client certificates\n` +
+                                        `- Service account tokens\n` +
+                                        `- Static tokens`;
+                                    
+                                    throw new Error(errorMsg);
+                                } else {
+                                    logger.info(`[KubernetesService] kubectl found for OIDC authentication: ${kubectlDir}`);
+                                }
+                            }
+                        }
+                    }
                 }
+                
+                this.kc.loadFromString(fileContent);
+            } catch (error: any) {
+                // Check if this is a kubectl spawn error
+                if (error.code === 'ENOENT' && error.message?.includes('kubectl')) {
+                    const errorMsg = 'Your Kubernetes configuration requires kubectl for authentication.\n\n' +
+                        'Please install kubectl on your system and ensure it\'s available in your PATH.\n\n' +
+                        'For macOS: brew install kubectl\n' +
+                        'For Windows: choco install kubernetes-cli\n' +
+                        'For Linux: See https://kubernetes.io/docs/tasks/tools/install-kubectl-linux/';
+                    
+                    throw new Error(errorMsg);
+                }
+                throw error;
             }
-            
-            this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
-            this.k8sAppsApi = this.kc.makeApiClient(k8s.AppsV1Api);
-            this.namespace = config.kubeConfig.namespace || 'default';
+            logger.info(`[KubernetesService] Loaded kubeconfig from ${config.kubeConfig.kubeConfigPath}`);
         } else {
-            throw new Error('Kubeconfig path is not set.');
+            this.kc.loadFromDefault();
+            logger.info('[KubernetesService] Loaded default kubeconfig');
         }
+        
+        // Log cluster info for debugging
+        const cluster = this.kc.getCurrentCluster();
+        if (cluster) {
+            logger.info(`[KubernetesService] Connected to cluster: ${cluster.name} at ${cluster.server}`);
+            if (cluster.skipTLSVerify) {
+                logger.info('[KubernetesService] Cluster is configured to skip TLS verification');
+            }
+        }
+
+        this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
+        this.k8sAppsApi = this.kc.makeApiClient(k8s.AppsV1Api);
+        this.namespace = config.kubeConfig.namespace || 'default';
+        
+        this.sendProgress({ phase: 'initializing', message: 'Kubernetes configuration loaded', progress: 10 });
     }
 
     private async validateConnectionWithRetry(maxRetries: number = 3): Promise<void> {

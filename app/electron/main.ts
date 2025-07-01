@@ -8,6 +8,9 @@ import { KubernetesService } from './kubernetes-service';
 import { promises as fs } from 'fs';
 import { SSHKeyInfo } from '../src/types/app';
 import { CondaConfigManager } from './conda-config';
+import { PortForwardManager } from './portforward-manager';
+import { ElectronAppState } from '../src/types/app';
+import log from 'electron-log';
 
 const isDev = process.env.IS_DEV === 'true';
 
@@ -20,6 +23,10 @@ const gitManager = GitConfigManager.getInstance();
 const kubeManager = KubeConfigManager.getInstance();
 const condaManager = CondaConfigManager.getInstance();
 
+// Configure logging
+Object.assign(console, log.functions);
+logger.info('[Main] Starting Jupyter Kube application...');
+
 async function createWindow(): Promise<void> {
   if (mainWindow && !mainWindow.isDestroyed()) {
     mainWindow.focus();
@@ -29,13 +36,11 @@ async function createWindow(): Promise<void> {
   mainWindow = new BrowserWindow({
     height: 800,
     width: 1200,
-    show: false, // Don't show until ready-to-show
+    show: false, 
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: false, // Allow iframe to load localhost content (JupyterLab)
-      allowRunningInsecureContent: true, // Allow mixed content for development
       webviewTag: true, // Allow webview tags
     },
   });
@@ -90,8 +95,30 @@ async function createWindow(): Promise<void> {
       logger.error('Failed to load development URL from any port');
     }
   } else {
-    mainWindow.loadFile(path.join(__dirname, '../dist/index.html')).catch((err) => {
+    const indexPath = path.join(__dirname, '../../dist/index.html');
+    logger.info(`Loading production file from: ${indexPath}`);
+    
+    // Show the window immediately for debugging
+    mainWindow.show();
+    
+    // Log additional debug info
+    logger.info(`__dirname: ${__dirname}`);
+    logger.info(`Resolved path: ${path.resolve(indexPath)}`);
+    
+    // Check if file exists before trying to load
+    try {
+      await fs.access(indexPath);
+      logger.info('HTML file exists, attempting to load...');
+    } catch (err) {
+      logger.error('HTML file does not exist:', err);
+      dialog.showErrorBox('File Not Found', `HTML file not found at ${indexPath}`);
+      return;
+    }
+    
+    mainWindow.loadFile(indexPath).catch((err) => {
       logger.error('Failed to load production file:', err);
+      // Show an error dialog to the user
+      dialog.showErrorBox('Failed to Load App', `Could not load app from ${indexPath}. Error: ${err.message}`);
     });
   }
 }
@@ -114,6 +141,14 @@ app.on('web-contents-created', (event, contents) => {
 app.on('ready', async () => {
     // Load state from disk
     await formStateManager.loadState();
+
+    // Configure kubectl path for OIDC authentication
+    try {
+      await KubeConfigManager.configureKubectlPath();
+      logger.info('[Main] Configured kubectl path for OIDC authentication');
+    } catch (error) {
+      logger.warn('[Main] Failed to configure kubectl path:', error);
+    }
 
     createWindow();
 });

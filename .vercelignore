@@ -3,7 +3,6 @@
 
 # Ignore other project files not related to the website
 /docker
-/debug-ssh.sh
 
 # Ignore common development files
 node_modules

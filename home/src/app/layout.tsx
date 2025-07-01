@@ -25,9 +25,9 @@ export const metadata: Metadata = {
     description: "Deploy JupyterLab environments to the National Research Platform.",
   },
   icons: {
-    icon: "/jupyter-kube.png",
-    shortcut: "/jupyter-kube.png",
-    apple: "/jupyter-kube.png",
+    icon: "/nrp-jl-icon.svg",
+    shortcut: "/nrp-jl-icon.svg",
+    apple: "/nrp-jl-icon.svg",
   },
 };
 

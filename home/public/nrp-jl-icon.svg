@@ -1,0 +1,68 @@
+<svg width="256" height="256" viewBox="0 0 256 256" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <linearGradient id="squircleGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1E40AF;stop-opacity:1" />
+      <stop offset="100%" style="stop-color:#3B82F6;stop-opacity:1" />
+    </linearGradient>
+  </defs>
+  
+  <!-- Squircle background -->
+  <path d="M 64 16 
+           C 32 16, 16 32, 16 64
+           L 16 192
+           C 16 224, 32 240, 64 240
+           L 192 240
+           C 224 240, 240 224, 240 192
+           L 240 64
+           C 240 32, 224 16, 192 16
+           Z" 
+           fill="url(#squircleGradient)" 
+           stroke="none"/>
+  
+  <!-- Abstract Kubernetes + Jupyter Design -->
+  
+  <!-- Central hexagon (main container/pod) -->
+  <polygon points="128,65 155,78 155,108 128,121 101,108 101,78" 
+           fill="rgba(255,255,255,0.9)" 
+           stroke="rgba(255,255,255,0.3)" 
+           stroke-width="1"/>
+  
+  <!-- Surrounding hexagons (cluster nodes) -->
+  <polygon points="80,115 100,127 100,151 80,163 60,151 60,127" 
+           fill="rgba(255,255,255,0.7)" 
+           stroke="none"/>
+  
+  <polygon points="176,115 196,127 196,151 176,163 156,151 156,127" 
+           fill="rgba(255,255,255,0.7)" 
+           stroke="none"/>
+  
+  <polygon points="128,165 148,177 148,201 128,213 108,201 108,177" 
+           fill="rgba(255,255,255,0.7)" 
+           stroke="none"/>
+  
+  <!-- Connection lines (network/communication) -->
+  <line x1="128" y1="121" x2="80" y2="139" 
+        stroke="rgba(255,255,255,0.5)" 
+        stroke-width="2"/>
+  
+  <line x1="128" y1="121" x2="176" y2="139" 
+        stroke="rgba(255,255,255,0.5)" 
+        stroke-width="2"/>
+  
+  <line x1="128" y1="121" x2="128" y2="165" 
+        stroke="rgba(255,255,255,0.5)" 
+        stroke-width="2"/>
+  
+  <!-- Orbital ring (Jupyter computational element) -->
+  <circle cx="128" cy="128" r="75" 
+          fill="none" 
+          stroke="rgba(255,255,255,0.25)" 
+          stroke-width="2" 
+          stroke-dasharray="10,5"/>
+  
+  <!-- Data flow indicators (small circles) -->
+  <circle cx="203" cy="128" r="4" fill="rgba(255,255,255,0.8)"/>
+  <circle cx="53" cy="128" r="4" fill="rgba(255,255,255,0.8)"/>
+  <circle cx="128" cy="53" r="4" fill="rgba(255,255,255,0.8)"/>
+  <circle cx="128" cy="203" r="4" fill="rgba(255,255,255,0.8)"/>
+</svg> 

@@ -14,6 +14,7 @@ export default defineConfig({
       "@": path.resolve(__dirname, "./src"),
     },
   },
+  base: './', // This makes paths relative
   build: {
     rollupOptions: {
       external: ['electron'],

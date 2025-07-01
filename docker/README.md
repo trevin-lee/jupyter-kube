@@ -132,7 +132,6 @@ dependencies:
 ## Accessing JupyterLab
 
 - **Direct access**: `http://localhost:8888/lab`
-- **Port forwarding**: `kubectl port-forward pod/jupyter-lab 8888:8888`
 - **No login required** - Configured for internal cluster access
 
 ## Customization

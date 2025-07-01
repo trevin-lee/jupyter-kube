@@ -28,7 +28,7 @@ export default function Home() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-3">
             <Image
-              src="/jupyter-kube.png"
+              src="/nrp-jl-icon.svg"
               alt="NRP Jupyter Launcher"
               width={40}
               height={40}
@@ -324,7 +324,7 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
               <Image
-                src="/jupyter-kube.png"
+                src="/nrp-jl-icon.svg"
                 alt="NRP Jupyter Launcher"
                 width={24}
                 height={24}

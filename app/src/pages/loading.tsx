@@ -174,14 +174,9 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
             <ArrowLeft className="h-4 w-4 mr-2" />
             Back to Configuration
           </Button>
-          <div>
-            <h1 className="text-3xl font-bold">
-              {isExistingDeployment ? 'Connecting to JupyterLab' : 'Deploying JupyterLab'}
-            </h1>
-            <p className="text-muted-foreground">
-              {isExistingDeployment ? 'Reconnecting to your existing Kubernetes pod...' : 'Setting up your Kubernetes pod...'}
-            </p>
-          </div>
+          <h1 className="text-3xl font-bold">
+            {isExistingDeployment ? 'Connecting to JupyterLab' : 'Deploying JupyterLab'}
+          </h1>
         </div>
 
         <div className="space-y-6">

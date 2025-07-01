@@ -268,7 +268,7 @@ export class DeploymentManager {
    * Stop port forwarding if active
    */
   public stopPortForward(): void {
-    if (this.portForwardManager) {
+    if (this.portForwardManager) {``
       this.portForwardManager.stop()
       this.portForwardManager = null
     }

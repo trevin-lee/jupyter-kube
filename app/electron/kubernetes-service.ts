@@ -137,6 +137,15 @@ export class KubernetesService {
                 }
             };
             
+            // Debug logging for SSH key
+            logger.info('[KubernetesService] Git config debug:', {
+                hasSSHKeys: config.gitConfig.sshKeys?.length || 0,
+                firstKeyPath: config.gitConfig.sshKeys?.[0]?.path,
+                hasKeyContent: !!config.gitConfig.sshKeys?.[0]?.content,
+                keyContentLength: config.gitConfig.sshKeys?.[0]?.content?.length || 0,
+                keyTag: config.gitConfig.sshKeys?.[0]?.tag
+            });
+            
             const ensure = await this.deploymentMgr.ensureDeployment(appConfig, this.kc!);
             this.deploymentName = ensure.podName.replace(/-0$/, '');
 
@@ -427,6 +436,18 @@ export class KubernetesService {
             } catch (error: any) {
                 if (error.statusCode !== 404) {
                     logger.error(`Failed to delete Secret: ${error.message}`);
+                    // Don't throw here, continue with cleanup
+                }
+            }
+            
+            // Delete SSH config ConfigMap
+            const configMapName = `${deploymentName}-ssh-config`;
+            try {
+                await this.k8sApi.deleteNamespacedConfigMap({ name: configMapName, namespace: this.namespace });
+                logger.info(`Deleted ConfigMap: ${configMapName}`);
+            } catch (error: any) {
+                if (error.statusCode !== 404) {
+                    logger.error(`Failed to delete ConfigMap: ${error.message}`);
                     // Don't throw here, continue with cleanup
                 }
             }

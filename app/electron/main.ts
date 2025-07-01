@@ -203,9 +203,34 @@ ipcMain.handle('kube:update', (event, namespace) => {
 // Kubernetes deployment handlers
 ipcMain.on('k8s:deploy', (event, config) => {
     if (!k8sService) return;
-    // Get the full state from FormStateManager instead of using the passed config
-    const fullState = formStateManager.getFullConfig();
-    k8sService.deployWithProgress(fullState);
+    
+    // Handle async loading and deployment
+    (async () => {
+        try {
+            // Ensure state is loaded with SSH key content
+            await formStateManager.loadState();
+            
+            // Get the full state from FormStateManager
+            const fullState = formStateManager.getFullConfig();
+            
+            // Debug logging
+            logger.info('[Main] Starting deployment with config:', {
+                hasSSHKeys: fullState.gitConfig.sshKeys?.length || 0,
+                firstKeyPath: fullState.gitConfig.sshKeys?.[0]?.path,
+                hasKeyContent: !!fullState.gitConfig.sshKeys?.[0]?.content,
+                keyContentLength: fullState.gitConfig.sshKeys?.[0]?.content?.length || 0
+            });
+            
+            await k8sService.deployWithProgress(fullState);
+        } catch (error: any) {
+            logger.error('[Main] Deployment failed:', error);
+            event.reply('k8s-deployment-progress', {
+                phase: 'error',
+                message: 'Failed to start deployment',
+                error: error?.message || error?.toString() || 'Unknown error'
+            });
+        }
+    })();
 });
 
 ipcMain.on('k8s:cleanup', (event, deploymentName) => {

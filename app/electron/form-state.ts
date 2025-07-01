@@ -110,6 +110,8 @@ export class FormStateManager {
                 // Load the private key content if not already loaded
                 if (!key.content) {
                   key.content = await fs.readFile(key.path, 'utf8')
+                  const keyPreview = key.content.substring(0, 50).replace(/\n/g, '\\n')
+                  logger.info(`[FormStateManager] Loaded SSH key from ${key.path}, starts with: ${keyPreview}...`)
                 }
                 
                 // Extract tag from public key if not already present

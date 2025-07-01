@@ -1,5 +1,12 @@
 #!/bin/bash
 echo "=== JupyterLab User Setup ==="
+
+# Ensure environments directory exists with proper permissions
+echo "Setting up environments directory..."
+mkdir -p /home/jovyan/environments
+chmod 755 /home/jovyan/environments
+echo "✅ Environments directory ready at /home/jovyan/environments"
+
 echo "Setting up Git configuration..."
 
 if [ ! -z "$GIT_USER_NAME" ] && [ ! -z "$GIT_USER_EMAIL" ]; then

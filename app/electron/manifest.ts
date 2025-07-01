@@ -94,6 +94,16 @@ export class ManifestManager {
     manifests: k8sTypes.KubernetesObject[]
   ): string | null {
     const { git, kubernetes } = config
+    
+    // Debug logging
+    logger.info('[ManifestManager] buildSshSecret called with git config:', {
+      hasUsername: !!git.username,
+      hasEmail: !!git.email,
+      sshKeyPath: git.sshKeyPath,
+      hasSshKeyContent: !!git.sshKeyContent,
+      sshKeyContentLength: git.sshKeyContent?.length || 0
+    })
+    
     if (!git.sshKeyContent) {
       logger.info(
         '[ManifestManager] No SSH key content found, skipping secret creation.'
@@ -102,6 +112,9 @@ export class ManifestManager {
     }
 
     const secretName = `${baseName}-ssh-secret`
+    
+    // Extract the key filename from the path (e.g., id_rsa, id_ed25519, etc.)
+    const keyFileName = git.sshKeyPath ? path.basename(git.sshKeyPath) : 'id_rsa'
 
     const secret: k8sTypes.V1Secret = {
       apiVersion: 'v1',
@@ -112,12 +125,17 @@ export class ManifestManager {
       },
       type: 'Opaque',
       data: {
-        id_rsa: Buffer.from(git.sshKeyContent).toString('base64')
+        [keyFileName]: Buffer.from(git.sshKeyContent).toString('base64')
       }
     }
 
+    // Debug: Log info about the SSH key being stored
+    const keyPreview = git.sshKeyContent.substring(0, 50).replace(/\n/g, '\\n')
+    logger.info(`[ManifestManager] Storing SSH key in secret, key starts with: ${keyPreview}...`)
+    logger.info(`[ManifestManager] SSH key length: ${git.sshKeyContent.length} characters`)
+
     manifests.push(secret)
-    logger.info(`[ManifestManager] Built SSH key secret: ${secretName}`)
+    logger.info(`[ManifestManager] Built SSH key secret: ${secretName} with key file: ${keyFileName}`)
     return secretName
   }
 
@@ -152,15 +170,63 @@ export class ManifestManager {
           metadata: {
             labels: podLabels
           },
-          spec: {
-            containers: [
-              {
-                name: 'jupyter-container',
-                image:
-                  'gitlab-registry.nrp-nautilus.io/trevin/jupyter-kube/jupyter:latest',
-                imagePullPolicy: 'Always',
-                ports: [{ containerPort: 8888 }],
-                env: [],
+                      spec: {
+              containers: [
+                {
+                  name: 'jupyter-container',
+                  image:
+                    'gitlab-registry.nrp-nautilus.io/trevin/jupyter-kube/jupyter:latest',
+                  imagePullPolicy: 'Always',
+                  ports: [{ containerPort: 8888 }],
+                  env: [],
+                  command: ['/bin/bash', '-c'],
+                args: [`
+                  # Create .ssh directory if it doesn't exist
+                  mkdir -p /home/jovyan/.ssh
+                  chmod 700 /home/jovyan/.ssh
+                  
+                  # Copy SSH keys from mounted volume
+                  if [ -d /tmp/ssh-keys ]; then
+                    echo "Copying SSH keys from /tmp/ssh-keys..."
+                    for file in /tmp/ssh-keys/*; do
+                      if [ -f "$file" ]; then
+                        filename=$(basename "$file")
+                        echo "Copying $filename to /home/jovyan/.ssh/"
+                        cp -f "$file" "/home/jovyan/.ssh/$filename"
+                        chmod 600 "/home/jovyan/.ssh/$filename"
+                      fi
+                    done
+                    
+                    # List copied keys for verification
+                    echo "SSH keys in ~/.ssh:"
+                    ls -la /home/jovyan/.ssh/
+                  else
+                    echo "WARNING: /tmp/ssh-keys directory not found!"
+                  fi
+                  
+                  # Set up SSH configuration
+                  if [ -d /tmp/ssh-config ]; then
+                    cp -f /tmp/ssh-config/config /home/jovyan/.ssh/config 2>/dev/null || true
+                    cp -f /tmp/ssh-config/known_hosts /home/jovyan/.ssh/known_hosts 2>/dev/null || true
+                    chmod 600 /home/jovyan/.ssh/config 2>/dev/null || true
+                    chmod 644 /home/jovyan/.ssh/known_hosts 2>/dev/null || true
+                  fi
+                  
+                  # Debug: Test SSH agent
+                  echo "Testing SSH agent..."
+                  ssh-add -l 2>/dev/null || echo "No SSH agent running or no keys loaded"
+                  
+                  # Start SSH agent and add keys
+                  eval $(ssh-agent -s)
+                  for key in /home/jovyan/.ssh/*; do
+                    if [ -f "$key" ] && [[ ! "$key" =~ \\.pub$ ]] && [[ ! "$key" =~ known_hosts ]] && [[ ! "$key" =~ config ]]; then
+                      ssh-add "$key" 2>/dev/null && echo "Added SSH key: $key" || echo "Failed to add SSH key: $key"
+                    fi
+                  done
+                  
+                  # Use the custom start script that handles environments
+                  exec /home/jovyan/start-jupyter.sh
+                `],
                 resources: {
                   requests: {
                     cpu: this.normalizeResourceQuantity(hardware.cpu),
@@ -219,18 +285,78 @@ export class ManifestManager {
         name: 'ssh-key-volume',
         secret: {
           secretName: sshSecretName,
-          defaultMode: 0o600
+          defaultMode: 0o444  // Make readable by all users in the container
         }
       })
       if (!podSpec.containers[0].volumeMounts) podSpec.containers[0].volumeMounts = [];
       podSpec.containers[0].volumeMounts!.push({
         name: 'ssh-key-volume',
-        mountPath: '/home/jovyan/.ssh',
+        mountPath: '/tmp/ssh-keys',
+        readOnly: true
+      })
+      
+      // Add SSH config to disable strict host key checking for seamless Git operations
+      // This creates a ConfigMap with SSH config that trusts common Git hosts
+      const sshConfigName = `${baseName}-ssh-config`
+      const sshConfig: k8sTypes.V1ConfigMap = {
+        apiVersion: 'v1',
+        kind: 'ConfigMap',
+        metadata: {
+          name: sshConfigName,
+          namespace: kubernetes.namespace || 'default'
+        },
+        data: {
+          'config': `# Auto-generated SSH config for seamless Git operations
+Host gitlab.com
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+    
+Host github.com
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+    
+Host bitbucket.org
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+
+# Accept any Git host without manual verification    
+Host *
+    StrictHostKeyChecking no
+    UserKnownHostsFile=/dev/null
+`,
+          'known_hosts': `# Common Git hosts - auto-populated for convenience
+gitlab.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIAfuCHKVTjquxvt6CM6tdG4SLp1Btn/nOeHHE5UOzRdf
+gitlab.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABAQCsj2bNKTBSpIYDEGk9KxsGh3mySTRgMtXL583qmBpzeQ+jqCMRgBqB98u3z++J1sKlXHWfM9dyhSevkMwSbhoR8XIq/U0tCNyokEi/ueaBMCvbcTHhO7FcwzY92WK4Yt0aGROY5qX83DpC7okTxC3JAESaNRbdSSwoGh+8ZERSjNbi0gMbaY6k1gKNxncG0AFDxpEEo8yTubR+Xr11LrR83QcZ5gBd00HgMSkfNoZONOc1nBdOBuZgTYkMZwR3i5zfQxxd3l1ao0gv4SHuzm0L5QHdg0Feqw8T5HqphiWKzrmMp+SdpQM+O2iIpPHIXuBIhwPH+ogqAmMhJRWdRlLw
+gitlab.com ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBFSMqzJeV9rUzU4kWitGjeR4PWSa29SPqJ1fVkhtj3Hw9xjLVXVYrU9QlYWrOLXBpQ6KWjbjTDTdDkoohFzgbEY=
+github.com ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIOMqqnkVzrm0SdG6UOoqKLsabgH5C9okWi0dh2l9GKJl
+github.com ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCj7ndNxQowgcQnjshcLrqPEiiphnt+VTTvDP6mHBL9j1aNUkY4Ue1gvwnGLVlOhGeYrnZaMgRK6+PKCUXaDbC7qtbW8gIkhL7aGCsOr/C56SJMy/BCZfxd1nWzAOxSDPgVsmerOBYfNqltV9/hWCqBywINIR+5dIg6JTJ72pcEpEjcYgXkE2YEFXV1JHnsKgbLWNlhScqb2UmyRkQyytRLtL+38TGxkxCflmO+5Z8CSSNY7GidjMIZ7Q4zMjA2n1nGrlTDkzwDCsw+wqFPGQA179cnfGWOWRVruj16z6XyvxvjJwbz0wQZ75XK5tKSb7FNyeIEs4TT4jk+S4dhPeAUC5y+bDYirYgM4GC7uEnztnZyaVWQ7B381AK4Qdrwt51ZqExKbQpTUNn+EjqoTwvqNj4kqx5QUCI0ThS/YkOxJCXmPUWZbhjpCg56i+2aB6CmK2JGhn57K5mj0MNdBXA4/WnwH6XoPWJzK5Nyu2zB3nAZp+S5hpQs+p1vN1/wsjk=
+`
+        }
+      }
+      manifests.push(sshConfig)
+      
+      // Add the SSH config volume
+      podSpec.volumes!.push({
+        name: 'ssh-config-volume',
+        configMap: {
+          name: sshConfigName,
+          defaultMode: 0o644
+        }
+      })
+      
+      // Mount the SSH config to a temporary location
+      // We'll copy it to the right place on container startup
+      podSpec.containers[0].volumeMounts!.push({
+        name: 'ssh-config-volume',
+        mountPath: '/tmp/ssh-config',
         readOnly: true
       })
     }
 
+    // Process conda environments
+    logger.info(`[ManifestManager] Processing ${environment.condaEnvironments.length} conda environments`)
     for (const env of environment.condaEnvironments) {
+      logger.info(`[ManifestManager] Adding conda environment: ${env.name}`)
       const configMapName = `${baseName}-conda-${env.name}`.toLowerCase()
       const fileName = env.fileName
         ? path.basename(env.fileName)
@@ -248,6 +374,7 @@ export class ManifestManager {
         }
       }
       manifests.push(configMap)
+      logger.info(`[ManifestManager] Created ConfigMap ${configMapName} for environment ${env.name}`)
 
       const volumeName = `conda-env-${env.name}`.toLowerCase()
       if (!podSpec.volumes) podSpec.volumes = [];
@@ -263,6 +390,7 @@ export class ManifestManager {
         mountPath: `/home/jovyan/environments/${fileName}`,
         subPath: fileName
       })
+      logger.info(`[ManifestManager] Mounted environment ${env.name} at /home/jovyan/environments/${fileName}`)
     }
 
     for (const pvc of hardware.pvcs) {

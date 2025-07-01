@@ -1,14 +1,41 @@
 #!/bin/bash
 echo "🔍 Scanning for environment files..."
+
+# List files in environments directory for debugging
+echo "📁 Contents of /home/jovyan/environments:"
+ls -la /home/jovyan/environments/ || echo "❌ Cannot list environments directory"
+
 PROCESSED_FILE="/home/jovyan/.processed_environments"
 touch $PROCESSED_FILE
+
+# Count environment files
+ENV_COUNT=0
+for yaml_file in /home/jovyan/environments/*.yml /home/jovyan/environments/*.yaml; do
+  if [ -f "$yaml_file" ]; then
+    ENV_COUNT=$((ENV_COUNT + 1))
+  fi
+done
+
+echo "📊 Found $ENV_COUNT environment file(s) to process"
 
 for yaml_file in /home/jovyan/environments/*.yml /home/jovyan/environments/*.yaml; do
   if [ -f "$yaml_file" ]; then
     basename_file=$(basename "$yaml_file")
+    echo "📄 Checking file: $yaml_file"
+    
     if ! grep -q "$basename_file" "$PROCESSED_FILE"; then
       echo "📦 Processing new environment: $basename_file"
-      ENV_NAME=$(head -1 "$yaml_file" | cut -d" " -f2)
+      
+      # Extract environment name from YAML content
+      ENV_NAME=$(grep -E "^name:" "$yaml_file" | head -1 | sed 's/^name:\s*//' | tr -d '\r\n')
+      
+      if [ -z "$ENV_NAME" ]; then
+        echo "⚠️  Could not extract environment name from $basename_file, skipping..."
+        continue
+      fi
+      
+      echo "🏷️  Environment name: $ENV_NAME"
+      
       if conda env list | grep -q "^$ENV_NAME "; then
         echo "⚠️  Environment $ENV_NAME already exists, skipping..."
       else
@@ -25,7 +52,13 @@ for yaml_file in /home/jovyan/environments/*.yml /home/jovyan/environments/*.yam
         fi
       fi
       echo "$basename_file" >> "$PROCESSED_FILE"
+    else
+      echo "⏭️  Already processed: $basename_file"
     fi
   fi
 done
+
+# Final summary
+echo "📊 Final conda environments:"
+conda env list
 echo "🏁 Environment processing complete!" 

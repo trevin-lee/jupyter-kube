@@ -17,7 +17,7 @@ import {
 export default function Home() {
   // Replace 'your-username/your-repo' with your actual GitHub repository
   const GITHUB_REPO = "trevin-lee/jupyter-kube"; // Update this!
-  const VERSION = "1.0.0";
+  const VERSION = "1.0.1";
   
   const downloadLinks = {
     windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher.Setup.${VERSION}.exe`,
@@ -52,7 +52,7 @@ export default function Home() {
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
           <Badge variant="secondary" className="mb-4">
-            Version 1.0.0
+            Version 1.0.1
           </Badge>
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Deploy JupyterLab to the
@@ -379,7 +379,7 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <Badge variant="outline">v1.0.0</Badge>
+              <Badge variant="outline">v1.0.1</Badge>
               <span className="text-sm text-muted-foreground">
                 Open Source • MIT License
               </span>

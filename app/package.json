@@ -81,6 +81,7 @@
     "appId": "com.nrp.jupyter-launcher",
     "productName": "NRP Jupyter Launcher",
     "copyright": "Copyright © 2025 Trevin Lee",
+    "afterSign": "scripts/notarize.js",
     "directories": {
       "output": "release",
       "buildResources": "assets"
@@ -101,10 +102,10 @@
     "mac": {
       "category": "public.app-category.developer-tools",
       "icon": "assets/icons/nrp-jl-icon.png",
-      "hardenedRuntime": true,
+      "hardenedRuntime": false,
       "gatekeeperAssess": false,
-      "entitlements": "assets/entitlements.mac.plist",
-      "entitlementsInherit": "assets/entitlements.mac.plist",
+      "sign": false,
+      "identity": null,
       "target": [
         {
           "target": "dmg",
@@ -120,7 +121,23 @@
             "x64"
           ]
         }
-      ]
+      ],
+      "dmg": {
+        "sign": false,
+        "contents": [
+          {
+            "x": 410,
+            "y": 150,
+            "type": "link",
+            "path": "/Applications"
+          },
+          {
+            "x": 130,
+            "y": 150,
+            "type": "file"
+          }
+        ]
+      }
     },
     "win": {
       "icon": "assets/icons/nrp-jl-icon.png",

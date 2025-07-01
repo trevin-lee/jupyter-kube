@@ -35,6 +35,7 @@ export interface IElectronAPI {
   kubeConfig: {
     detect: () => Promise<AppKubeConfig>;
     update: (namespace: string | null) => Promise<boolean>;
+    selectFile: () => Promise<AppKubeConfig | null>;
   };
 
   kubernetes: {

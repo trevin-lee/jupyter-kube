@@ -38,7 +38,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       setKubeConfigFound(false)
       
       // Call the Electron API to detect kubeconfig
-      const detection = await window.electronAPI.kubernetes.detectConfig()
+      const detection = await window.electronAPI.kubeConfig.detect()
       logger.info('🔍 Detection result:', detection)
       
       if (detection && detection.kubeConfigPath) {
@@ -67,8 +67,28 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     setIsScanning(false)
   }
 
-  const handleSelectKubeConfig = () => {
-    // By using electron dialog we don't need this anymore
+  const handleSelectKubeConfig = async () => {
+    try {
+      logger.info('📁 Opening file dialog for kubeconfig selection...')
+      const result = await window.electronAPI.kubeConfig.selectFile()
+      
+      if (result && result.kubeConfigPath) {
+        onConfigChange('kubeConfigPath', result.kubeConfigPath)
+        setKubeConfigFound(true)
+        setKubeConfigChecked(true)
+        logger.info('✅ Kubeconfig file selected:', result.kubeConfigPath)
+        
+        if(result.namespace) {
+          onConfigChange('namespace', result.namespace)
+          setDetectedNamespace(result.namespace)
+        }
+        if(result.availableNamespaces) {
+          setAvailableNamespaces(result.availableNamespaces)
+        }
+      }
+    } catch (error) {
+      logger.error('❌ Failed to select kubeconfig file:', error)
+    }
   }
 
   const handleKubeConfigFileChange = (event: React.ChangeEvent<HTMLInputElement>) => {
@@ -122,7 +142,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     
     setIsDetectingNamespace(true)
     try {
-      const result = await window.electronAPI.kubernetes.detectConfig()
+      const result = await window.electronAPI.kubeConfig.detect()
       setDetectedNamespace(result.namespace)
       setAvailableNamespaces(result.availableNamespaces)
       
@@ -149,8 +169,12 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 
   // Update states when config changes (from loaded config or user input)
   useEffect(() => {
+    // Always sync kubeConfigFound with the actual config value
+    const hasConfig = !!config.kubeConfigPath && config.kubeConfigPath.trim() !== ''
+    setKubeConfigFound(hasConfig)
+    
+    // Only set checked on initial load
     if (!kubeConfigChecked && config.kubeConfigPath !== undefined) {
-      setKubeConfigFound(!!config.kubeConfigPath)
       setKubeConfigChecked(true)
     }
     
@@ -297,6 +321,22 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
           className="hidden"
         />
       </div>
+      
+      {/* Error message */}
+      <div className="p-3 bg-red-50 border border-red-200 rounded-md">
+        <div className="flex gap-2">
+          <AlertCircle className="h-4 w-4 text-red-600 flex-shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <p className="text-sm font-medium text-red-800">
+              Kubeconfig Required
+            </p>
+            <p className="text-xs text-red-700">
+              A valid kubeconfig file is required to deploy JupyterLab to a Kubernetes cluster. 
+              Please select your kubeconfig file or ensure one exists at ~/.kube/config.
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
   )
 
@@ -307,14 +347,16 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     if (!kubeConfigChecked) {
       return renderInitialLoadingState()
     }
-    if (kubeConfigFound) {
+    // Check the actual config value instead of local state
+    if (config.kubeConfigPath && config.kubeConfigPath.trim() !== '') {
       return renderConfigFoundState()
     }
     return renderConfigNotFoundState()
   }
 
   const renderNamespaceSection = () => {
-    if (!kubeConfigFound) {
+    // Check the actual config value instead of local state
+    if (!config.kubeConfigPath || config.kubeConfigPath.trim() === '') {
       return (
         <div className="p-4 border-2 border-dashed border-muted rounded-lg text-center">
           <AlertCircle className="mx-auto h-6 w-6 text-muted-foreground mb-2" />

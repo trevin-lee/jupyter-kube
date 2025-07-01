@@ -2,23 +2,35 @@
 echo "🔍 Scanning for environment files..."
 
 # List files in environments directory for debugging
-echo "📁 Contents of /home/jovyan/environments:"
-ls -la /home/jovyan/environments/ || echo "❌ Cannot list environments directory"
+echo "📁 Contents of /home/jovyan/main/environments:"
+ls -la /home/jovyan/main/environments/ || echo "❌ Cannot list environments directory"
 
 PROCESSED_FILE="/home/jovyan/.processed_environments"
 touch $PROCESSED_FILE
 
 # Count environment files
 ENV_COUNT=0
-for yaml_file in /home/jovyan/environments/*.yml /home/jovyan/environments/*.yaml; do
+NEW_ENV_COUNT=0
+for yaml_file in /home/jovyan/main/environments/*.yml /home/jovyan/main/environments/*.yaml; do
   if [ -f "$yaml_file" ]; then
     ENV_COUNT=$((ENV_COUNT + 1))
+    basename_file=$(basename "$yaml_file")
+    if ! grep -q "$basename_file" "$PROCESSED_FILE"; then
+      NEW_ENV_COUNT=$((NEW_ENV_COUNT + 1))
+    fi
   fi
 done
 
-echo "📊 Found $ENV_COUNT environment file(s) to process"
+echo "📊 Found $ENV_COUNT environment file(s) total, $NEW_ENV_COUNT new to process"
 
-for yaml_file in /home/jovyan/environments/*.yml /home/jovyan/environments/*.yaml; do
+# Early exit if no new environments
+if [ $NEW_ENV_COUNT -eq 0 ]; then
+  echo "✅ All environments already processed, skipping..."
+  conda env list
+  exit 0
+fi
+
+for yaml_file in /home/jovyan/main/environments/*.yml /home/jovyan/main/environments/*.yaml; do
   if [ -f "$yaml_file" ]; then
     basename_file=$(basename "$yaml_file")
     echo "📄 Checking file: $yaml_file"

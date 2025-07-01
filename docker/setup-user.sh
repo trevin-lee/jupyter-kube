@@ -3,9 +3,9 @@ echo "=== JupyterLab User Setup ==="
 
 # Ensure environments directory exists with proper permissions
 echo "Setting up environments directory..."
-mkdir -p /home/jovyan/environments
-chmod 755 /home/jovyan/environments
-echo "✅ Environments directory ready at /home/jovyan/environments"
+mkdir -p /home/jovyan/main/environments
+chmod 755 /home/jovyan/main/environments
+echo "✅ Environments directory ready at /home/jovyan/main/environments"
 
 echo "Setting up Git configuration..."
 

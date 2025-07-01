@@ -200,6 +200,39 @@ ipcMain.handle('kube:update', (event, namespace) => {
     return true;
 });
 
+ipcMain.handle('kube:selectFile', async () => {
+    const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
+        title: 'Select Kubeconfig File',
+        filters: [
+            { name: 'Kubeconfig Files', extensions: ['yaml', 'yml', 'conf', 'config'] },
+            { name: 'All Files', extensions: ['*'] }
+        ],
+        properties: ['openFile']
+    });
+    
+    if (!canceled && filePaths.length > 0) {
+        const selectedPath = filePaths[0];
+        logger.info(`[Main] User selected kubeconfig file: ${selectedPath}`);
+        
+        // Set the path directly and try to parse it
+        kubeManager.setConfig({
+            ...kubeManager.getConfig(),
+            kubeConfigPath: selectedPath
+        });
+        
+        // Try to parse the file to get namespace info
+        try {
+            await kubeManager.autoDetectKubeConfig();
+        } catch (error) {
+            logger.error('[Main] Failed to parse selected kubeconfig:', error);
+        }
+        
+        return kubeManager.getConfig();
+    }
+    
+    return null;
+});
+
 // Kubernetes deployment handlers
 ipcMain.on('k8s:deploy', (event, config) => {
     if (!k8sService) return;

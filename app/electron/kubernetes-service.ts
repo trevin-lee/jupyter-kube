@@ -299,10 +299,34 @@ export class KubernetesService {
                                 this.setupPortForward(podName).catch(e => {
                                     this.sendProgress({ phase: 'error', message: 'Failed to set up port forwarding.', error: e.message, progress: 100 });
                                 });
-                                this.watchRequest?.abort();
+                                // Don't abort the watch - keep monitoring for pod deletion
+                                // this.watchRequest?.abort();
                             } else {
                               this.sendProgress({ message: `Pod is ${status.phase}...`, progress: 60 });
                             }
+                        } else if (type === 'DELETED') {
+                            logger.warn(`[KubernetesService] Pod ${podName} has been deleted externally`);
+                            
+                            // Stop port forwarding immediately
+                            if (this.portForwardMgr) {
+                                logger.info('[KubernetesService] Stopping port forward due to pod deletion');
+                                this.portForwardMgr.stop();
+                                this.portForwardMgr = null;
+                            }
+                            
+                            // Stop deployment manager's port forwarding as well
+                            this.deploymentMgr.stopPortForward();
+                            
+                            // Notify the UI that the pod has been deleted
+                            this.sendProgress({ 
+                                phase: 'error', 
+                                message: 'Pod has been deleted. Port forwarding stopped.', 
+                                error: 'The JupyterLab pod was deleted externally',
+                                progress: 100 
+                            });
+                            
+                            // Abort the watch
+                            this.watchRequest?.abort();
                         }
                     },
                     async (err) => {
@@ -407,6 +431,25 @@ export class KubernetesService {
     }
     
     public async cleanupJupyterLab(deploymentName: string): Promise<void> {
+        logger.info(`[KubernetesService] Starting cleanup for ${deploymentName}...`);
+        
+        // IMPORTANT: Stop port forwarding FIRST before deleting the pod
+        if (this.portForwardMgr) {
+            logger.info('[KubernetesService] Stopping port forward before cleanup');
+            this.portForwardMgr.stop();
+            this.portForwardMgr = null;
+        }
+        
+        // Also stop deployment manager's port forwarding
+        this.deploymentMgr.stopPortForward();
+        
+        // Stop watching the pod if we're still watching it
+        if (this.watchRequest) {
+            logger.info('[KubernetesService] Stopping pod watch before cleanup');
+            this.watchRequest.abort();
+            this.watchRequest = null;
+        }
+        
         if (!this.k8sAppsApi || !this.k8sApi) await this.loadKubeConfig({} as any); // cheap way to get apis
         
         if (!this.namespace) {
@@ -415,7 +458,7 @@ export class KubernetesService {
         }
 
         try {
-            logger.info(`Cleaning up resources for ${deploymentName}...`);
+            logger.info(`Cleaning up Kubernetes resources for ${deploymentName}...`);
             
             // Delete StatefulSet
             try {
@@ -440,16 +483,45 @@ export class KubernetesService {
                 }
             }
             
-            // Delete SSH config ConfigMap
-            const configMapName = `${deploymentName}-ssh-config`;
+            // Delete all Conda environment ConfigMaps for this deployment
             try {
-                await this.k8sApi.deleteNamespacedConfigMap({ name: configMapName, namespace: this.namespace });
-                logger.info(`Deleted ConfigMap: ${configMapName}`);
-            } catch (error: any) {
-                if (error.statusCode !== 404) {
-                    logger.error(`Failed to delete ConfigMap: ${error.message}`);
-                    // Don't throw here, continue with cleanup
+                logger.info(`Cleaning up Conda ConfigMaps for deployment: ${deploymentName}`);
+                
+                // First, let's get all ConfigMaps in the namespace
+                const allConfigMaps = await this.k8sApi.listNamespacedConfigMap({ 
+                    namespace: this.namespace 
+                });
+                
+                // Filter for ConfigMaps that belong to this deployment
+                const condaConfigMaps = allConfigMaps.items.filter(cm => {
+                    const labels = cm.metadata?.labels || {};
+                    return labels['instance'] === deploymentName && labels['type'] === 'conda-environment';
+                });
+                
+                if (condaConfigMaps.length > 0) {
+                    logger.info(`Found ${condaConfigMaps.length} Conda ConfigMaps to delete`);
+                    
+                    // Delete each ConfigMap
+                    for (const configMap of condaConfigMaps) {
+                        try {
+                            const name = configMap.metadata?.name;
+                            if (name) {
+                                await this.k8sApi.deleteNamespacedConfigMap({ 
+                                    name: name, 
+                                    namespace: this.namespace 
+                                });
+                                logger.info(`Deleted ConfigMap: ${name}`);
+                            }
+                        } catch (cmError: any) {
+                            logger.warn(`Failed to delete ConfigMap: ${cmError.message}`);
+                        }
+                    }
+                } else {
+                    logger.info('No Conda ConfigMaps found to delete');
                 }
+            } catch (error: any) {
+                logger.warn(`Failed to list/delete Conda ConfigMaps: ${error.message}`);
+                // Don't throw, this is not critical
             }
             
         } catch (error: any) {

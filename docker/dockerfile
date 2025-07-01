@@ -20,11 +20,6 @@ RUN mamba install -c conda-forge \
     jupyterlab \
     nb_conda_kernels \
     ipykernel \
-    numpy \
-    pandas \
-    matplotlib \
-    seaborn \
-    scikit-learn \
     requests \
     jupyter-collaboration \
     conda-env \
@@ -33,7 +28,7 @@ RUN mamba install -c conda-forge \
     conda clean --all -f -y
 
 WORKDIR /home/jovyan/main
-RUN mkdir -p /home/jovyan/environments
+RUN mkdir -p /home/jovyan/main/environments
 
 # Fix ownership of conda-related directories
 RUN chown -R jovyan:users /opt/conda && \
@@ -44,16 +39,22 @@ USER $NB_UID
 
 # Copy configuration files and scripts
 COPY --chown=jovyan:users jupyter_lab_config.py /home/jovyan/.jupyter/jupyter_lab_config.py
+COPY --chown=jovyan:users generate-ssh-config.sh /home/jovyan/generate-ssh-config.sh
+COPY --chown=jovyan:users setup-ssh.sh /home/jovyan/setup-ssh.sh
 COPY --chown=jovyan:users setup-user.sh /home/jovyan/setup-user.sh
 COPY --chown=jovyan:users create-env.sh /home/jovyan/create-env.sh
 COPY --chown=jovyan:users process-environments.sh /home/jovyan/process-environments.sh
+COPY --chown=jovyan:users build-environments.sh /home/jovyan/build-environments.sh
 COPY --chown=jovyan:users refresh-environments.sh /home/jovyan/refresh-environments.sh
 COPY --chown=jovyan:users start-jupyter.sh /home/jovyan/start-jupyter.sh
 
 # Make scripts executable
-RUN chmod +x /home/jovyan/setup-user.sh && \
+RUN chmod +x /home/jovyan/generate-ssh-config.sh && \
+    chmod +x /home/jovyan/setup-ssh.sh && \
+    chmod +x /home/jovyan/setup-user.sh && \
     chmod +x /home/jovyan/create-env.sh && \
     chmod +x /home/jovyan/process-environments.sh && \
+    chmod +x /home/jovyan/build-environments.sh && \
     chmod +x /home/jovyan/refresh-environments.sh && \
     chmod +x /home/jovyan/start-jupyter.sh
     

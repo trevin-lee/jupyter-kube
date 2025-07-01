@@ -67,7 +67,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
                     if (isMounted.current) {
                       onSuccess(currentPodName, currentPodStatus, currentJupyterUrl)
                     }
-                  }, 1000)
+                  }, 2000) // Give a bit more time for the browser to be ready
             } else if (progressUpdate.phase === 'error') {
                 onError(progressUpdate.error || 'Unknown error');
             }
@@ -156,7 +156,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
       case 'applying-manifests':
         return 'Starting Services'
       case 'setting-up-access':
-        return isExistingDeployment ? 'Establishing Connection' : 'Setting Up Access'
+        return progress.includes('Verifying') ? 'Verifying Connection' : (isExistingDeployment ? 'Establishing Connection' : 'Setting Up Access')
       case 'ready':
         return '🎉 Ready!'
       case 'error':

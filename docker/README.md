@@ -1,6 +1,6 @@
 # JupyterLab Kubernetes Container
 
-This Docker container provides a fully configured JupyterLab environment with conda environment support, Git integration, and automated environment processing for Kubernetes deployment.
+This Docker container provides a fully configured JupyterLab environment with conda environment support, Git integration, and on-demand environment processing for Kubernetes deployment.
 
 ## Files Overview
 
@@ -11,9 +11,10 @@ This Docker container provides a fully configured JupyterLab environment with co
 
 ### 🔧 Scripts
 
-- **`start-jupyter.sh`** - Main startup script (runs user setup, processes environments, starts JupyterLab)
+- **`start-jupyter.sh`** - Main startup script (runs user setup, starts JupyterLab)
 - **`setup-user.sh`** - User configuration script (Git setup, user info)
-- **`process-environments.sh`** - Automatically processes conda environment files
+- **`build-environments.sh`** - Interactive script to build conda environments
+- **`process-environments.sh`** - Processes conda environment files (used by build-environments.sh)
 - **`refresh-environments.sh`** - Manual environment refresh trigger
 - **`create-env.sh`** - Single environment creation helper
 
@@ -43,7 +44,7 @@ docker run -d -p 8888:8888 \
 
 # With custom environment files
 docker run -d -p 8888:8888 \
-  -v /path/to/environments:/home/jovyan/environments \
+  -v /path/to/environments:/home/jovyan/main/environments \
   jupyter-kube:latest
 ```
 
@@ -67,7 +68,7 @@ spec:
       value: "you@example.com"
     volumeMounts:
     - name: environments
-      mountPath: /home/jovyan/environments
+                mountPath: /home/jovyan/main/environments
   volumes:
   - name: environments
     configMap:
@@ -76,17 +77,30 @@ spec:
 
 ## Environment Processing Workflow
 
-1. **Upload YAML files** to `/home/jovyan/environments/`
-2. **Automatic processing** on container startup
+1. **Upload YAML files** to `/home/jovyan/main/environments/`
+2. **Run the build script** to process environments (see below)
 3. **Conda environments created** from YAML files
 4. **Jupyter kernels registered** automatically
 5. **Kernels available** in JupyterLab interface
 
-### Manual Environment Refresh
+### Building Environments
 
+Environments are **NOT** built automatically on startup to speed up container initialization. 
+
+To build your conda environments, open a terminal in JupyterLab and run:
 ```bash
-# Inside the container or via kubectl exec
-/home/jovyan/refresh-environments.sh
+# Interactive build (with confirmation prompt)
+~/build-environments.sh
+
+# Direct build (no prompts)
+~/process-environments.sh
+```
+
+### Refreshing Environments
+
+To check for new environment files after the container is running:
+```bash
+~/refresh-environments.sh
 ```
 
 ## Features
@@ -95,7 +109,7 @@ spec:
 - ✅ **Git Integration** - CLI + JupyterLab Git extension
 - ✅ **Conda Environment Support** - Automatic kernel registration
 - ✅ **User Configuration** - Git user setup via environment variables
-- ✅ **Automated Processing** - Scans and processes environment files
+- ✅ **On-Demand Processing** - Build environments when needed
 - ✅ **Kubernetes Ready** - Designed for pod deployment
 
 ## Environment File Format

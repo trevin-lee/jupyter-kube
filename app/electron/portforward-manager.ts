@@ -134,4 +134,12 @@ export class PortForwardManager {
       this.currentPod = null
     }
   }
+  
+  public isActive(): boolean {
+    return this.server !== null && this.currentPort !== null && this.currentPod !== null
+  }
+  
+  public getCurrentPod(): string | null {
+    return this.currentPod
+  }
 } 

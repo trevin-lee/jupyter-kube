@@ -55,6 +55,15 @@ export class KubeConfigManager {
 
   public async autoDetectKubeConfig(): Promise<AppKubeConfig> {
     logger.info('[KubeConfigManager] Starting auto-detection...')
+    
+    // Reset state before detection
+    this.config = {
+      kubeConfigPath: null,
+      currentContext: null,
+      namespace: null,
+      availableNamespaces: []
+    }
+    
     const configPath = await this.detectKubeConfigPath()
 
     if (configPath) {

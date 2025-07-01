@@ -160,15 +160,17 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
     const cpuValid = config.hardware.cpu && config.hardware.cpu.trim() !== ''
     const memoryValid = config.hardware.memory && config.hardware.memory.trim() !== ''
     const gpuValid = config.hardware.gpu === 'none' || config.hardware.gpuCount > 0
+    const kubeconfigValid = config.kubernetes.kubeConfigPath && config.kubernetes.kubeConfigPath.trim() !== ''
     
     logger.info('🔍 Form validation:', {
       cpu: cpuValid ? config.hardware.cpu : 'MISSING',
       memory: memoryValid ? config.hardware.memory : 'MISSING', 
       gpu: gpuValid ? `${config.hardware.gpu} (${config.hardware.gpuCount})` : 'INVALID',
-      overall: cpuValid && memoryValid && gpuValid
+      kubeconfig: kubeconfigValid ? config.kubernetes.kubeConfigPath : 'MISSING',
+      overall: cpuValid && memoryValid && gpuValid && kubeconfigValid
     })
     
-    return cpuValid && memoryValid && gpuValid
+    return cpuValid && memoryValid && gpuValid && kubeconfigValid
   }
 
   const handleDeploy = () => {
@@ -194,20 +196,11 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
     
     setIsDeploying(true)
     
-    // Set a default kubeconfig path if none provided
-    const deployConfig = {
-      ...config,
-      kubernetes: {
-        ...config.kubernetes,
-        kubeConfigPath: config.kubernetes.kubeConfigPath || '/home/user/.kube/config'
-      }
-    }
-    
-    logger.info('🎯 Final deploy config:', deployConfig)
+    logger.info('🎯 Final deploy config:', config)
     logger.info('📞 Calling onDeploy function...')
     
     try {
-      onDeploy(deployConfig)
+      onDeploy(config)
       logger.info('✅ onDeploy called successfully')
       // Note: isDeploying will be reset when the user navigates back to this page
       // or when the deployment completes
@@ -330,6 +323,9 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
                 <div className="text-sm text-muted-foreground text-center space-y-1">
                   <p>Please complete the following to deploy:</p>
                   <div className="flex flex-wrap gap-2 justify-center">
+                    {(!config.kubernetes.kubeConfigPath || config.kubernetes.kubeConfigPath.trim() === '') && (
+                      <Badge variant="destructive">Kubeconfig Required</Badge>
+                    )}
                     {(!config.hardware.cpu || config.hardware.cpu.trim() === '') && (
                       <Badge variant="destructive">CPU Required</Badge>
                     )}

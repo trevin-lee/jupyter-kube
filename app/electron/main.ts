@@ -265,19 +265,31 @@ ipcMain.handle('kube:selectFile', async () => {
         const selectedPath = filePaths[0];
         logger.info(`[Main] User selected kubeconfig file: ${selectedPath}`);
         
-        // Set the path directly and try to parse it
+        // Set the path first
+        const currentConfig = kubeManager.getConfig();
         kubeManager.setConfig({
-            ...kubeManager.getConfig(),
+            ...currentConfig,
             kubeConfigPath: selectedPath
         });
         
-        // Try to parse the file to get namespace info
+        // Detect namespace information from the selected file
         try {
-            await kubeManager.autoDetectKubeConfig();
+            const namespaceInfo = await kubeManager.detectNamespaces();
+            
+            // Update config with detected namespace info
+            kubeManager.setConfig({
+                ...kubeManager.getConfig(),
+                namespace: namespaceInfo.namespace,
+                availableNamespaces: namespaceInfo.availableNamespaces
+            });
+            
+            logger.info('[Main] Detected namespace info from selected file:', namespaceInfo);
         } catch (error) {
-            logger.error('[Main] Failed to parse selected kubeconfig:', error);
+            logger.error('[Main] Failed to detect namespace from selected kubeconfig:', error);
         }
         
+        // Save state and return updated config
+        formStateManager.saveState();
         return kubeManager.getConfig();
     }
     

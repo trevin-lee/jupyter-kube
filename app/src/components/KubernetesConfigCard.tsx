@@ -3,7 +3,7 @@ import { Button } from "./ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card"
 import { Input } from "./ui/input"
 import { Label } from "./ui/label"
-import { FolderOpen, Upload, RefreshCw, X, Search, AlertCircle } from 'lucide-react'
+import { FolderOpen, Upload, RefreshCw, X, AlertCircle } from 'lucide-react'
 import { KubernetesConfig } from '../types/app'
 import logger from '../api/logger'
 
@@ -24,7 +24,6 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   // Namespace-related state
   const [detectedNamespace, setDetectedNamespace] = useState<string | null>(null)
   const [availableNamespaces, setAvailableNamespaces] = useState<string[]>([])
-  const [isDetectingNamespace, setIsDetectingNamespace] = useState(false)
 
   const handleDetectKubeConfig = async () => {
     setIsScanning(true)
@@ -35,27 +34,35 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       // Reset state - user is explicitly requesting detection
       setKubeConfigChecked(false)
       
-      // Call the Electron API to detect kubeconfig
+      // Call the Electron API to detect kubeconfig and namespace together
       const detection = await window.electronAPI.kubeConfig.detect()
       logger.info('🔍 Detection result:', detection)
       
       if (detection && detection.kubeConfigPath) {
         onConfigChange('kubeConfigPath', detection.kubeConfigPath)
         logger.info('✅ Kubeconfig detected and set:', detection.kubeConfigPath)
+        
+        // Update namespace information from detection
         if(detection.namespace) {
           onConfigChange('namespace', detection.namespace)
+          setDetectedNamespace(detection.namespace)
         }
         if(detection.availableNamespaces) {
-            setAvailableNamespaces(detection.availableNamespaces)
+          setAvailableNamespaces(detection.availableNamespaces)
         }
-
       } else {
         onConfigChange('kubeConfigPath', '')
+        onConfigChange('namespace', '')
+        setDetectedNamespace(null)
+        setAvailableNamespaces([])
         logger.error('❌ No kubeconfig found')
       }
     } catch (error) {
       logger.error('❌ Kubeconfig detection failed:', error)
       onConfigChange('kubeConfigPath', '')
+      onConfigChange('namespace', '')
+      setDetectedNamespace(null)
+      setAvailableNamespaces([])
     }
     
     setKubeConfigChecked(true)
@@ -72,6 +79,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
         setKubeConfigChecked(true)
         logger.info('✅ Kubeconfig file selected:', result.kubeConfigPath)
         
+        // Update namespace information from selection
         if(result.namespace) {
           onConfigChange('namespace', result.namespace)
           setDetectedNamespace(result.namespace)
@@ -117,55 +125,24 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
   }
 
   const clearKubeConfig = () => {
-    logger.info('🧹 [1/4] Clear button clicked - starting clear process...')
-    logger.info('🧹 [2/4] Current config before clear:', { kubeConfigPath: config.kubeConfigPath, namespace: config.namespace })
+    logger.info('🧹 Clearing kubeconfig and namespace...')
     
-    // Only update kubeConfigPath - the parent component will handle clearing namespace
+    // Clear both kubeconfig and namespace
     onConfigChange('kubeConfigPath', '')
-    logger.info('🧹 [3/4] Called onConfigChange for kubeConfigPath with empty string')
+    onConfigChange('namespace', '')
     
     // Clear local state
     setKubeConfigChecked(true)
     setDetectedNamespace(null)
     setAvailableNamespaces([])
-    setIsDetectingNamespace(false)
     
-    logger.info('🧹 [4/4] Clear process complete - config should now be empty')
+    logger.info('🧹 Clear process complete')
   }
 
-  // Detect namespace when kubeconfig is available
-  const handleDetectNamespace = async () => {
-    if (!config.kubeConfigPath) {
-      logger.warn('No kubeconfig path available for namespace detection')
-      return
-    }
-    
-    setIsDetectingNamespace(true)
-    try {
-      const result = await window.electronAPI.kubeConfig.detectNamespaces()
-      setDetectedNamespace(result.namespace)
-      setAvailableNamespaces(result.availableNamespaces)
-      
-      // If no namespace is set in config and we detected one, use it
-      if (!config.namespace && result.namespace) {
-        onConfigChange('namespace', result.namespace)
-      }
-      
-      logger.info('🔍 Namespace detection result:', result)
-    } catch (error) {
-      logger.error('Failed to detect namespace:', error)
-    } finally {
-      setIsDetectingNamespace(false)
-    }
-  }
-
-  // Handle namespace input changes (simplified)
+  // Handle namespace input changes
   const handleNamespaceChange = (namespace: string) => {
     onConfigChange('namespace', namespace)
   }
-
-  // Only auto-detect when user explicitly clicks the scan button
-  // App-level auto-detection handles the initial load
 
   // Update states when config changes (from loaded config or user input)
   useEffect(() => {
@@ -176,18 +153,11 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
       setKubeConfigChecked(true)
     }
     
-    // Clear detected namespace and available namespaces when kubeconfig is cleared
+    // Clear namespace state when kubeconfig is cleared
     if (!config.kubeConfigPath || config.kubeConfigPath.trim() === '') {
       setDetectedNamespace(null)
       setAvailableNamespaces([])
-      logger.info('🧹 Config path is empty, cleared related state')
-      return
-    }
-    
-    // Auto-detect namespace when kubeconfig becomes available
-    if (config.kubeConfigPath && !detectedNamespace) {
-      logger.info('🔍 Auto-detecting namespace for:', config.kubeConfigPath)
-      handleDetectNamespace()
+      logger.info('🧹 Config path is empty, cleared namespace state')
     }
   }, [config.kubeConfigPath])
 
@@ -267,7 +237,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
           className="bg-green-50 border-green-200 text-green-800 font-medium"
         />
         <p className="text-xs text-muted-foreground">
-          Kubeconfig file automatically detected. Use "Scan" to re-scan for changes.
+          Kubeconfig file automatically detected. Use "Auto-detect" to re-scan for changes.
         </p>
         <input
           ref={kubeConfigInputRef}
@@ -351,27 +321,15 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     const configPath = config.kubeConfigPath
     const hasConfigPath = configPath && configPath.trim() !== ''
     
-    logger.info('🎨 Rendering kubeconfig section:', {
-      isScanning,
-      kubeConfigChecked,
-      configPath,
-      hasConfigPath
-    })
-    
     if (isScanning) {
-      logger.info('🎨 Rendering: Scanning state')
       return renderScanningState()
     }
     if (!kubeConfigChecked) {
-      logger.info('🎨 Rendering: Initial loading state')
       return renderInitialLoadingState()
     }
-    // Check the actual config value instead of local state
     if (hasConfigPath) {
-      logger.info('🎨 Rendering: Config found state')
       return renderConfigFoundState()
     }
-    logger.info('🎨 Rendering: Config not found state')
     return renderConfigNotFoundState()
   }
 
@@ -382,7 +340,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
         <div className="p-4 border-2 border-dashed border-muted rounded-lg text-center">
           <AlertCircle className="mx-auto h-6 w-6 text-muted-foreground mb-2" />
           <p className="text-sm text-muted-foreground">
-            Configure kubeconfig first to detect and set namespace
+            Configure kubeconfig first to set namespace
           </p>
         </div>
       )
@@ -390,29 +348,14 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
 
     return (
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <Label className="flex items-center gap-2">
-            Kubernetes Namespace
-            {detectedNamespace && (
-              <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
-                Auto-detected: {detectedNamespace}
-              </span>
-            )}
-          </Label>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={handleDetectNamespace}
-            disabled={isDetectingNamespace}
-          >
-            {isDetectingNamespace ? (
-              <div className="animate-spin rounded-full h-4 w-4 border-2 border-primary border-t-transparent"></div>
-            ) : (
-              <Search className="h-4 w-4 mr-2" />
-            )}
-            {isDetectingNamespace ? 'Detecting...' : 'Auto-detect'}
-          </Button>
-        </div>
+        <Label className="flex items-center gap-2">
+          Kubernetes Namespace
+          {detectedNamespace && (
+            <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+              Detected: {detectedNamespace}
+            </span>
+          )}
+        </Label>
 
         <div className="space-y-2">
           <Input
@@ -425,7 +368,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
             The Kubernetes namespace where your JupyterLab will be deployed. 
             {availableNamespaces.length > 0 && (
               <span className="block mt-1">
-                Available: {availableNamespaces.slice(0, 5).join(', ')}
+                Available namespaces: {availableNamespaces.slice(0, 5).join(', ')}
                 {availableNamespaces.length > 5 && ` (+${availableNamespaces.length - 5} more)`}
               </span>
             )}
@@ -443,7 +386,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
           Kubernetes Configuration
         </CardTitle>
         <CardDescription>
-          Configure your Kubernetes cluster connection
+          Configure your Kubernetes cluster connection and namespace
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">

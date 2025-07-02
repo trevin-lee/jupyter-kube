@@ -33,18 +33,10 @@ jobs:
     - name: Sync versions from version.json
       run: node scripts/sync-versions.js
         
-    - name: Install app dependencies (macOS/Windows)
-      if: matrix.os != 'ubuntu-latest'
+    - name: Install app dependencies
       run: |
         cd app
-        npm ci
-        
-    - name: Install app dependencies (Linux - use yarn)
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        cd app
-        npm install -g yarn
-        yarn install
+        npm install --force
         
     - name: Build Electron app (macOS)
       if: matrix.os == 'macos-latest'

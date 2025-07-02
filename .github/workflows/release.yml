@@ -32,12 +32,20 @@ jobs:
       run: node scripts/sync-versions.js
         
     - name: Install dependencies
-      run: npm ci
+      run: npm ci --include=dev
         
     - name: Install app dependencies
       run: |
         cd app
-        npm ci
+        npm ci --include=dev
+        
+    - name: Ensure electron is available for electron-builder
+      run: |
+        cd app
+        # Force install electron in app directory to avoid hoisting issues
+        npm install electron@^27.1.0 --save-dev --force
+        # Verify electron is installed
+        npm list electron
         
     - name: Install Linux-specific dependencies
       if: matrix.os == 'ubuntu-latest'

@@ -1,6 +1,6 @@
 {
   "name": "jupyter-kube",
-  "version": "1.0.16",
+  "version": "1.0.17",
   "description": "Kubernetes-based Jupyter environment manager",
   "main": "dist-electron/electron/main.js",
   "author": {
@@ -21,10 +21,10 @@
     "electron:preview": "npm run build && electron .",
     "build:electron": "tsc --project electron/tsconfig.json",
     "build:for-electron": "npm run build:electron && vite build",
-    "app:build": "cross-env NODE_ENV=production npm run build:for-electron && cross-env NODE_ENV=production electron-builder",
-    "build:mac": "cross-env NODE_ENV=production npm run build:for-electron && cross-env NODE_ENV=production electron-builder --mac",
-    "build:win": "cross-env NODE_ENV=production npm run build:for-electron && cross-env NODE_ENV=production electron-builder --win",
-    "build:linux": "cross-env NODE_ENV=production npm run build:for-electron && cross-env NODE_ENV=production electron-builder --linux",
+    "app:build": "npm run build:for-electron && cross-env NODE_ENV=production electron-builder",
+    "build:mac": "npm run build:for-electron && cross-env NODE_ENV=production electron-builder --mac",
+    "build:win": "npm run build:for-electron && cross-env NODE_ENV=production electron-builder --win",
+    "build:linux": "npm run build:for-electron && cross-env NODE_ENV=production electron-builder --linux",
     "build:all": "npm run build:mac && npm run build:win && npm run build:linux",
     "clean": "rm -rf dist-electron && rm -rf dist && rm -rf release",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",

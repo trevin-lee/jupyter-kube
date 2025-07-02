@@ -52,8 +52,7 @@ export default function Home() {
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Deploy JupyterLab to the
-            <span className="text-primary"> National Research Platform</span>
+            Deploy JupyterLab to NRP
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
             A desktop application designed for the <strong>National Research Platform (NRP)</strong> Kubernetes cluster. 

@@ -26,6 +26,10 @@ jobs:
       with:
         node-version: 20
         
+    - name: Sync versions from version.json
+      run: |
+        node scripts/prebuild.js
+        
     - name: Install dependencies
       run: |
         cd app

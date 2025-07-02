@@ -29,7 +29,8 @@ try {
   try {
     execSync('git diff --quiet && git diff --cached --quiet', { stdio: 'ignore' });
   } catch (error) {
-    console.error('❌ Error: You have uncommitted changes. Please commit or stash them first.');
+    console.error('❌ Error: You have uncommitted changes. Please commit them first.');
+    console.log('💡 Commit your changes, then run: npm run release');
     process.exit(1);
   }
 
@@ -43,33 +44,18 @@ try {
     // Tag doesn't exist, which is good
   }
 
-  // Sync versions to ensure everything is consistent
-  console.log('🔄 Syncing versions across all files...');
-  execSync('./scripts/sync-versions.sh', { stdio: 'inherit' });
-  console.log('');
+  console.log('✅ Git state is clean, proceeding with release...');
 
-  // Check if there are any changes after version sync
-  try {
-    execSync('git diff --quiet && git diff --cached --quiet', { stdio: 'ignore' });
-    console.log('✅ All versions already in sync');
-  } catch (error) {
-    console.log('📝 Committing version sync changes...');
-    execSync('git add .', { stdio: 'inherit' });
-    execSync(`git commit -m "chore: sync versions for release v${version}"`, { stdio: 'inherit' });
-  }
-
-  // Create and push tag
+  // Create and push tag (no code commits)
   console.log(`\n🏷️  Creating tag v${version}...`);
   execSync(`git tag v${version}`, { stdio: 'inherit' });
 
-  console.log('📤 Pushing to GitLab (will mirror to GitHub)...');
-  execSync('git push origin main', { stdio: 'inherit' });
+  console.log('📤 Pushing tag to GitLab (will mirror to GitHub)...');
   execSync(`git push origin v${version}`, { stdio: 'inherit' });
 
-  console.log('\n🎉 Release process completed successfully!');
+  console.log('\n🎉 Release tag created successfully!');
   console.log('\n📋 What happens next:');
-  console.log('• GitLab → GitHub mirror synchronization');
-  console.log('• Vercel website deployment with updated version');
+  console.log('• GitLab → GitHub mirror synchronization');  
   console.log('• GitHub Actions will build releases for all platforms:');
   console.log(`  - macOS: NRP Jupyter Launcher-${version}-arm64.dmg`);
   console.log(`  - macOS Intel: NRP Jupyter Launcher-${version}.dmg`);
@@ -80,23 +66,8 @@ try {
   console.log('• GitHub Actions: https://github.com/trevin-lee/jupyter-kube/actions');
   console.log('• Releases: https://github.com/trevin-lee/jupyter-kube/releases');
   console.log('• Website: https://jupyter-kube.vercel.app');
-
-  // Update the download version in version.ts for immediate working downloads
-  const versionTsPath = path.join(__dirname, '..', 'home', 'src', 'lib', 'version.ts');
-  if (fs.existsSync(versionTsPath)) {
-    console.log('\n🔧 Updating download fallback version...');
-    let versionTsContent = fs.readFileSync(versionTsPath, 'utf8');
-    versionTsContent = versionTsContent.replace(
-      /export const DOWNLOAD_VERSION = "[^"]*"/,
-      `export const DOWNLOAD_VERSION = "${version}"`
-    );
-    fs.writeFileSync(versionTsPath, versionTsContent);
-    
-    execSync('git add home/src/lib/version.ts', { stdio: 'inherit' });
-    execSync(`git commit -m "chore: update download version to v${version}"`, { stdio: 'inherit' });
-    execSync('git push origin main', { stdio: 'inherit' });
-    console.log('✅ Download links will work immediately after GitHub Actions completes');
-  }
+  
+  console.log('\n💡 Note: Download links automatically point to latest release!');
 
 } catch (error) {
   console.error('\n❌ Release process failed:', error.message);

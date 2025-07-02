@@ -2,23 +2,27 @@
 
 This project now has a fully automated release system that handles everything from version management to deployment.
 
-## 🎯 Single Command Release
+## 🎯 Simple Release Workflow
 
 ```bash
-# 1. Update version in version.json
+# 1. Update version everywhere
 ./scripts/update-version.sh 1.0.7
 
-# 2. Release with one command
+# 2. Commit your changes
+git add .
+git commit -m "Release v1.0.7"
+git push origin main
+
+# 3. Create release tag
 npm run release
 ```
 
-That's it! The system automatically:
-- ✅ Syncs versions across all files
-- ✅ Creates git tag
-- ✅ Pushes to GitLab → GitHub
+The system automatically:
+- ✅ Creates git tag from current version
+- ✅ Pushes tag to GitLab → GitHub  
 - ✅ Triggers GitHub Actions builds
-- ✅ Updates website download links
 - ✅ Creates GitHub release with binaries
+- ✅ Download links automatically point to latest
 
 ## 📋 Available Commands
 
@@ -55,14 +59,21 @@ npm run release
 
 ## 🔄 Complete Release Workflow
 
-### Method 1: Quick Release (Recommended)
+### Method 1: Standard Workflow (Recommended)
 ```bash
-# Update version and release in one go
+# 1. Update version everywhere
 ./scripts/update-version.sh 1.0.7
+
+# 2. Commit your changes
+git add .
+git commit -m "Release v1.0.7"
+git push origin main
+
+# 3. Create release tag
 npm run release
 ```
 
-### Method 2: Step-by-step
+### Method 2: With Testing
 ```bash
 # 1. Update version
 ./scripts/update-version.sh 1.0.7
@@ -74,7 +85,10 @@ git diff
 npm run dev:app
 npm run dev:website
 
-# 4. Release
+# 4. Commit and release
+git add .
+git commit -m "Release v1.0.7"
+git push origin main
 npm run release
 ```
 

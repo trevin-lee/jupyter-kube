@@ -38,7 +38,7 @@ try {
   try {
     execSync(`git rev-parse v${version}`, { stdio: 'ignore' });
     console.error(`❌ Error: Tag v${version} already exists. Please update version.json first.`);
-    console.log(`💡 Run: ./scripts/update-version.sh <new-version>`);
+    console.log(`💡 Run: npm run update-version <new-version>`);
     process.exit(1);
   } catch (error) {
     // Tag doesn't exist, which is good

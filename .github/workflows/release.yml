@@ -38,6 +38,13 @@ jobs:
         cd app
         npm ci
         
+    - name: Fix Rollup optional dependencies (Linux)
+      if: matrix.os == 'ubuntu-latest'
+      run: |
+        cd app
+        rm -rf node_modules package-lock.json
+        npm install
+        
     - name: Build Electron app (macOS)
       if: matrix.os == 'macos-latest'
       run: |

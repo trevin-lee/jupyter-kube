@@ -45,6 +45,7 @@ jobs:
         cd app
         rm -rf node_modules package-lock.json
         npm install
+        npm install @rollup/rollup-linux-x64-gnu --save-optional
         
     - name: Build Electron app (macOS)
       if: matrix.os == 'macos-latest'

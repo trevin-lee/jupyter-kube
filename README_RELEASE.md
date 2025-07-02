@@ -29,13 +29,13 @@ The system automatically:
 ### Version Management
 ```bash
 # Update version everywhere
-./scripts/update-version.sh 1.0.7
+npm run update-version 1.0.7
 
 # Sync versions from version.json
 npm run sync-versions
 
 # Prepare release with guided workflow
-npm run prepare-release
+npm run prepare-release 1.0.7
 ```
 
 ### Development
@@ -62,7 +62,7 @@ npm run release
 ### Method 1: Standard Workflow (Recommended)
 ```bash
 # 1. Update version everywhere
-./scripts/update-version.sh 1.0.7
+npm run update-version 1.0.7
 
 # 2. Commit your changes
 git add .
@@ -76,7 +76,7 @@ npm run release
 ### Method 2: With Testing
 ```bash
 # 1. Update version
-./scripts/update-version.sh 1.0.7
+npm run update-version 1.0.7
 
 # 2. Review changes
 git diff

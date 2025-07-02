@@ -1,6 +1,6 @@
 {
   "name": "jupyter-kube",
-  "version": "1.0.5",
+  "version": "1.0.6",
   "description": "Kubernetes-based Jupyter environment manager",
   "main": "dist-electron/electron/main.js",
   "author": {
@@ -92,6 +92,13 @@
       "node_modules/**/*",
       "!src/**/*",
       "!electron/**/*"
+    ],
+    "asarUnpack": [
+      "node_modules/@kubernetes/**/*",
+      "node_modules/isomorphic-ws/**/*",
+      "node_modules/ws/**/*",
+      "node_modules/bufferutil/**/*",
+      "node_modules/utf-8-validate/**/*"
     ],
     "protocols": {
       "name": "Jupyter Kube Protocol",

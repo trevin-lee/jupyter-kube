@@ -1,6 +1,6 @@
 {
   "name": "jupyter-kube-monorepo",
-  "version": "1.0.17",
+  "version": "1.0.7",
   "description": "NRP Jupyter Launcher - Monorepo with automated release management",
   "private": true,
   "workspaces": [

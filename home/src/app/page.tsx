@@ -1,7 +1,4 @@
-'use client';
-
 import Image from "next/image";
-import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,23 +13,19 @@ import {
   CheckCircle,
   ChevronDown
 } from "lucide-react";
-import { APP_VERSION, getDownloadLinks, getLatestDownloadLinks, DownloadLinks } from "@/lib/version";
 
 export default function Home() {
-  const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(getDownloadLinks());
-
-  useEffect(() => {
-    // Fetch latest release download links
-    getLatestDownloadLinks()
-      .then((latestLinks) => {
-        if (latestLinks && Object.values(latestLinks).some(link => link)) {
-          setDownloadLinks(latestLinks);
-        }
-      })
-      .catch((error) => {
-        console.warn('Using fallback download links:', error);
-      });
-  }, []);
+  // Replace 'your-username/your-repo' with your actual GitHub repository
+  const GITHUB_REPO = "trevin-lee/jupyter-kube"; // Update this!
+  const VERSION = "1.0.6";
+  
+  const downloadLinks = {
+    windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher.Setup.${VERSION}.exe`,
+    mac: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}-arm64.dmg`,
+    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.dmg`,
+    linux: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.AppImage`,
+    linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/jupyter-kube_${VERSION}_amd64.deb`
+  };
 
   return (
     <div className="min-h-screen bg-background">
@@ -58,6 +51,9 @@ export default function Home() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
+          <Badge variant="secondary" className="mb-4">
+            Version 1.0.4
+          </Badge>
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Deploy JupyterLab to the
             <span className="text-primary"> National Research Platform</span>
@@ -383,7 +379,7 @@ export default function Home() {
               </span>
             </div>
             <div className="flex items-center gap-4">
-              <Badge variant="outline">v{APP_VERSION}</Badge>
+              <Badge variant="outline">v1.0.4</Badge>
               <span className="text-sm text-muted-foreground">
                 Open Source • MIT License
               </span>

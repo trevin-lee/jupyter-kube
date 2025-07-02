@@ -25,33 +25,15 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: 20
-        cache: 'npm'
-        cache-dependency-path: package-lock.json
         
     - name: Sync versions from version.json
-      run: node scripts/sync-versions.js
+      run: |
+        node scripts/prebuild.js
         
     - name: Install dependencies
-      run: npm ci --include=dev
-        
-    - name: Install app dependencies
       run: |
         cd app
-        npm ci --include=dev
-        
-    - name: Ensure electron is available for electron-builder
-      run: |
-        cd app
-        # Force install electron in app directory to avoid hoisting issues
-        npm install electron@^27.1.0 --save-dev --force
-        # Verify electron is installed
-        npm list electron
-        
-    - name: Install Linux-specific dependencies
-      if: matrix.os == 'ubuntu-latest'
-      run: |
-        cd app
-        npm install @rollup/rollup-linux-x64-gnu --save-optional
+        npm ci
         
     - name: Build Electron app (macOS)
       if: matrix.os == 'macos-latest'

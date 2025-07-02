@@ -2,7 +2,7 @@
 // The version is synchronized from the root version.json during build
 
 // This will be replaced by sync-versions.js script
-export const APP_VERSION = '1.0.17';
+export const APP_VERSION = '1.0.7';
 export const GITHUB_REPO = "trevin-lee/jupyter-kube";
 
 // GitHub API endpoint for latest release

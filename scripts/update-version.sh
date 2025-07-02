@@ -4,7 +4,7 @@
 
 if [ -z "$1" ]; then
   echo "Usage: ./scripts/update-version.sh <version>"
-  echo "Example: ./scripts/update-version.sh 1.0.5"
+  echo "Example: ./scripts/update-version.sh 1.0.7"
   exit 1
 fi
 
@@ -13,11 +13,26 @@ VERSION=$1
 echo "Updating version to $VERSION..."
 
 # Update root version.json (single source of truth)
-sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" version.json
+echo "Updating version.json..."
+cat > version.json << EOF
+{
+  "version": "$VERSION",
+  "description": "Single source of truth for version numbers across the jupyter-kube monorepo"
+}
+EOF
 
-echo "Version updated to $VERSION in version.json!"
+echo "✓ Updated version.json to $VERSION"
 echo ""
-echo "Run './scripts/sync-versions.sh' to sync all files with the new version"
-echo "Don't forget to:"
-echo "1. Commit the changes: git commit -am 'Update version to $VERSION'"
-echo "2. Create and push tag: git tag v$VERSION && git push origin v$VERSION" 
+
+# Now sync all other files from this single source
+echo "Syncing version across all files..."
+./scripts/sync-versions.sh
+
+echo ""
+echo "✅ Version update complete!"
+echo ""
+echo "Next steps:"
+echo "1. Review the changes: git diff"
+echo "2. Test the website: cd home && npm run dev"
+echo "3. Commit the changes: git commit -am 'Update version to $VERSION'"
+echo "4. Create and push tag: git tag v$VERSION && git push origin v$VERSION" 

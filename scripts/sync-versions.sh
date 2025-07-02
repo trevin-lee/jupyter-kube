@@ -1,31 +1,44 @@
 #!/bin/bash
 
-# Script to sync version from version.json to all files
+# Script to sync version numbers across all files from version.json (single source of truth)
 
-# Read version from version.json
-VERSION=$(grep -o '"version": *"[^"]*"' version.json | grep -o '"[^"]*"$' | tr -d '"')
+# Get version from root version.json
+VERSION=$(node -p "require('./version.json').version")
 
 if [ -z "$VERSION" ]; then
   echo "Error: Could not read version from version.json"
   exit 1
 fi
 
-echo "Syncing version $VERSION to all files..."
+echo "Syncing version $VERSION across all files..."
 
 # Update app/package.json
-sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" app/package.json
+echo "Updating app/package.json..."
+if [ -f "app/package.json" ]; then
+  sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" app/package.json
+  rm -f app/package.json.bak
+  echo "✓ Updated app/package.json"
+else
+  echo "⚠ app/package.json not found"
+fi
 
 # Update home/package.json
-sed -i '' "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" home/package.json
+echo "Updating home/package.json..."
+if [ -f "home/package.json" ]; then
+  sed -i.bak "s/\"version\": \"[^\"]*\"/\"version\": \"$VERSION\"/" home/package.json
+  rm -f home/package.json.bak
+  echo "✓ Updated home/package.json"
+else
+  echo "⚠ home/package.json not found"
+fi
 
-# Update home/src/app/page.tsx
-sed -i '' "s/const VERSION = \"[^\"]*\"/const VERSION = \"$VERSION\"/" home/src/app/page.tsx
-sed -i '' "s/Version [0-9]\+\.[0-9]\+\.[0-9]\+/Version $VERSION/" home/src/app/page.tsx
-sed -i '' "s/>v[0-9]\+\.[0-9]\+\.[0-9]\+</>v$VERSION</" home/src/app/page.tsx
+# The home page now automatically reads from version.json via the version.ts utility
+# No need to manually update hardcoded values anymore!
+echo "✓ Home page will automatically use version $VERSION via version.ts"
 
-echo "✅ All files synced to version $VERSION!"
 echo ""
-echo "Files updated:"
-echo "  - app/package.json"
-echo "  - home/package.json"
-echo "  - home/src/app/page.tsx" 
+echo "✅ Version sync complete!"
+echo "All components now use version: $VERSION"
+echo ""
+echo "Note: The home website automatically reads from version.json"
+echo "      No manual updates needed for download links or version badges" 

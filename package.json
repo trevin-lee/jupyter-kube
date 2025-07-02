@@ -1,0 +1,34 @@
+{
+  "name": "jupyter-kube-monorepo",
+  "version": "1.0.6",
+  "description": "NRP Jupyter Launcher - Monorepo with automated release management",
+  "private": true,
+  "workspaces": [
+    "app",
+    "home"
+  ],
+  "scripts": {
+    "release": "node scripts/release.js",
+    "sync-versions": "./scripts/sync-versions.sh",
+    "update-version": "./scripts/update-version.sh",
+    "prepare-release": "./scripts/prepare-release.sh",
+    "dev:app": "cd app && npm run dev:all",
+    "dev:website": "cd home && npm run dev",
+    "build:app": "cd app && npm run build:mac",
+    "build:website": "cd home && npm run build",
+    "clean": "cd app && npm run clean"
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/trevin-lee/jupyter-kube.git"
+  },
+  "author": {
+    "name": "Trevin Lee",
+    "email": "trl008@ucsd.edu"
+  },
+  "license": "MIT",
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "devDependencies": {}
+} 

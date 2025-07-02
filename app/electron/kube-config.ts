@@ -131,6 +131,54 @@ export class KubeConfigManager {
     return this.config
   }
 
+  /**
+   * Detects namespaces from the current kubeconfig without resetting the configuration
+   */
+  public async detectNamespaces(): Promise<{namespace: string | null, availableNamespaces: string[]}> {
+    logger.info('[KubeConfigManager] Detecting namespaces...')
+    
+    if (!this.config.kubeConfigPath) {
+      logger.warn('[KubeConfigManager] No kubeconfig path set, cannot detect namespaces')
+      return { namespace: null, availableNamespaces: [] }
+    }
+    
+    try {
+      const k8s = await getK8s()
+      if (!this.k8sConfig) this.k8sConfig = new k8s.KubeConfig()
+      const fileContent = await fs.promises.readFile(this.config.kubeConfigPath, { encoding: 'utf8' })
+      
+      // Load the kubeconfig
+      this.k8sConfig.loadFromString(fileContent)
+      
+      const currentContext = this.k8sConfig.getCurrentContext()
+      const contextObject = this.k8sConfig.getContextObject(currentContext)
+      
+      let detectedNamespace = null
+      if (contextObject?.namespace) {
+        detectedNamespace = contextObject.namespace
+        logger.info(`[KubeConfigManager] Detected namespace from context: ${detectedNamespace}`)
+      }
+      
+      // Get all unique namespaces from contexts
+      const contexts = this.k8sConfig.getContexts()
+      const namespaces = contexts
+        .map((c: any) => c.namespace as string | undefined)
+        .filter((ns: string | undefined): ns is string => !!ns)
+      const availableNamespaces: string[] = Array.from(new Set(namespaces))
+      
+      logger.info(`[KubeConfigManager] Found ${availableNamespaces.length} unique namespaces in contexts`)
+      
+      // Update the stored config with detected values
+      this.config.namespace = detectedNamespace
+      this.config.availableNamespaces = availableNamespaces
+      
+      return { namespace: detectedNamespace, availableNamespaces }
+    } catch (error) {
+      logger.error(`[KubeConfigManager] Error detecting namespaces: ${(error as Error).message}`)
+      return { namespace: null, availableNamespaces: [] }
+    }
+  }
+
   private async detectKubeConfigPath(): Promise<string | null> {
     const envPath = process.env.KUBECONFIG
     if (envPath) {

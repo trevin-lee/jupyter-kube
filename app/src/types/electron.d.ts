@@ -34,7 +34,9 @@ export interface IElectronAPI {
 
   kubeConfig: {
     detect: () => Promise<AppKubeConfig>;
+    detectNamespaces: () => Promise<{namespace: string | null, availableNamespaces: string[]}>;
     update: (namespace: string | null) => Promise<boolean>;
+    updatePath: (kubeConfigPath: string | null) => Promise<boolean>;
     selectFile: () => Promise<AppKubeConfig | null>;
   };
 

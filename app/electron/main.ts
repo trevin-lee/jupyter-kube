@@ -225,6 +225,7 @@ ipcMain.handle('git:update', (event, gitConfig) => {
 
 // Kube configuration handlers
 ipcMain.handle('kube:detect', () => kubeManager.autoDetectKubeConfig());
+ipcMain.handle('kube:detectNamespaces', () => kubeManager.detectNamespaces());
 
 ipcMain.handle('kube:update', (event, namespace) => {
     const currentConfig = kubeManager.getConfig();

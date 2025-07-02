@@ -40,6 +40,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Kube configuration APIs
   kubeConfig: {
     detect: () => ipcRenderer.invoke('kube:detect'),
+    detectNamespaces: () => ipcRenderer.invoke('kube:detectNamespaces'),
     update: (namespace: string | null) => ipcRenderer.invoke('kube:update', namespace),
     updatePath: (kubeConfigPath: string | null) => ipcRenderer.invoke('kube:updatePath', kubeConfigPath),
     selectFile: () => ipcRenderer.invoke('kube:selectFile'),

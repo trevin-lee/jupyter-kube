@@ -142,7 +142,7 @@ export const KubernetesConfigCard: React.FC<KubernetesConfigCardProps> = ({
     
     setIsDetectingNamespace(true)
     try {
-      const result = await window.electronAPI.kubeConfig.detect()
+      const result = await window.electronAPI.kubeConfig.detectNamespaces()
       setDetectedNamespace(result.namespace)
       setAvailableNamespaces(result.availableNamespaces)
       

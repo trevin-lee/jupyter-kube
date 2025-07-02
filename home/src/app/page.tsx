@@ -1,4 +1,7 @@
+'use client';
+
 import Image from "next/image";
+import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -13,14 +16,10 @@ import {
   CheckCircle,
   ChevronDown
 } from "lucide-react";
-'use client';
-
-import { useState, useEffect } from "react";
-import { APP_VERSION, getDownloadLinks, getLatestDownloadLinks } from "@/lib/version";
+import { APP_VERSION, getDownloadLinks, getLatestDownloadLinks, DownloadLinks } from "@/lib/version";
 
 export default function Home() {
-  const [downloadLinks, setDownloadLinks] = useState(getDownloadLinks());
-  const [isLoading, setIsLoading] = useState(true);
+  const [downloadLinks, setDownloadLinks] = useState<DownloadLinks>(getDownloadLinks());
 
   useEffect(() => {
     // Fetch latest release download links
@@ -29,11 +28,9 @@ export default function Home() {
         if (latestLinks && Object.values(latestLinks).some(link => link)) {
           setDownloadLinks(latestLinks);
         }
-        setIsLoading(false);
       })
       .catch((error) => {
         console.warn('Using fallback download links:', error);
-        setIsLoading(false);
       });
   }, []);
 

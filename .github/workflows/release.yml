@@ -26,25 +26,18 @@ jobs:
       with:
         node-version: 20
         cache: 'npm'
-        cache-dependency-path: |
-          app/package-lock.json
-          home/package-lock.json
+        cache-dependency-path: package-lock.json
         
     - name: Sync versions from version.json
       run: node scripts/sync-versions.js
         
-    - name: Install app dependencies (Windows/macOS)
-      if: matrix.os != 'ubuntu-latest'
-      run: |
-        cd app
-        npm ci
+    - name: Install dependencies
+      run: npm ci
         
-    - name: Install app dependencies (Linux)
+    - name: Install Linux-specific dependencies
       if: matrix.os == 'ubuntu-latest'
       run: |
         cd app
-        rm -rf node_modules package-lock.json
-        npm install
         npm install @rollup/rollup-linux-x64-gnu --save-optional
         
     - name: Build Electron app (macOS)

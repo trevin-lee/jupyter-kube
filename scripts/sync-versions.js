@@ -60,6 +60,32 @@ try {
     }
   }
 
+  // Update version.ts file
+  const versionTsPath = path.join(__dirname, '..', 'home', 'src', 'lib', 'version.ts');
+  if (fs.existsSync(versionTsPath)) {
+    try {
+      let content = fs.readFileSync(versionTsPath, 'utf8');
+      const oldVersionMatch = content.match(/export const APP_VERSION = '([^']+)';/);
+      const oldVersion = oldVersionMatch ? oldVersionMatch[1] : 'unknown';
+      
+      content = content.replace(
+        /export const APP_VERSION = '[^']+';/,
+        `export const APP_VERSION = '${version}';`
+      );
+      
+      fs.writeFileSync(versionTsPath, content);
+      
+      if (oldVersion !== version) {
+        console.log(`✅ Updated home/src/lib/version.ts: ${oldVersion} → ${version}`);
+        updated++;
+      } else {
+        console.log(`✓ home/src/lib/version.ts: already ${version}`);
+      }
+    } catch (error) {
+      console.error(`❌ Error updating version.ts:`, error.message);
+    }
+  }
+
   console.log(`\n✅ Version sync complete!`);
   console.log(`📊 Updated ${updated} file(s) to version ${version}`);
   console.log(`📄 Home website automatically reads from version.json`);

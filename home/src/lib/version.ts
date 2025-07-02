@@ -1,9 +1,8 @@
-// This file automatically imports version information from the root version.json
-// This ensures all version numbers stay in sync across the monorepo
+// This file contains version information
+// The version is synchronized from the root version.json during build
 
-import versionData from '../../../version.json';
-
-export const APP_VERSION = versionData.version;
+// This will be replaced by sync-versions.js script
+export const APP_VERSION = '1.0.15';
 export const GITHUB_REPO = "trevin-lee/jupyter-kube";
 
 // GitHub API endpoint for latest release

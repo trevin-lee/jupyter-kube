@@ -1,4 +1,4 @@
 {
-  "version": "1.0.8",
+  "version": "1.0.9",
   "description": "Single source of truth for version numbers across the jupyter-kube monorepo"
 }

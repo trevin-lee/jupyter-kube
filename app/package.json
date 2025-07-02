@@ -86,19 +86,13 @@
       "output": "release",
       "buildResources": "assets"
     },
+    "asar": false,
     "files": [
       "dist/**/*",
       "dist-electron/**/*",
       "node_modules/**/*",
       "!src/**/*",
       "!electron/**/*"
-    ],
-    "asarUnpack": [
-      "node_modules/@kubernetes/**/*",
-      "node_modules/isomorphic-ws/**/*",
-      "node_modules/ws/**/*",
-      "node_modules/bufferutil/**/*",
-      "node_modules/utf-8-validate/**/*"
     ],
     "protocols": {
       "name": "Jupyter Kube Protocol",

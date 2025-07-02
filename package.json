@@ -8,6 +8,7 @@
     "home"
   ],
   "scripts": {
+    "postinstall": "node scripts/postinstall.js",
     "release": "node scripts/release.js",
     "sync-versions": "node scripts/sync-versions.js",
     "update-version": "node scripts/update-version.js",

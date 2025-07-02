@@ -51,9 +51,6 @@ export default function Home() {
       {/* Hero Section */}
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
-          <Badge variant="secondary" className="mb-4">
-            Version 1.0.4
-          </Badge>
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
             Deploy JupyterLab to the
             <span className="text-primary"> National Research Platform</span>

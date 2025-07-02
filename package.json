@@ -1,6 +1,6 @@
 {
   "name": "jupyter-kube-monorepo",
-  "version": "1.0.6",
+  "version": "1.0.8",
   "description": "NRP Jupyter Launcher - Monorepo with automated release management",
   "private": true,
   "workspaces": [
@@ -9,9 +9,9 @@
   ],
   "scripts": {
     "release": "node scripts/release.js",
-    "sync-versions": "./scripts/sync-versions.sh",
-    "update-version": "./scripts/update-version.sh",
-    "prepare-release": "./scripts/prepare-release.sh",
+    "sync-versions": "node scripts/sync-versions.js",
+    "update-version": "node scripts/update-version.js",
+    "prepare-release": "node scripts/prepare-release.js",
     "dev:app": "cd app && npm run dev:all",
     "dev:website": "cd home && npm run dev",
     "build:app": "cd app && npm run build:mac",
@@ -31,4 +31,4 @@
     "node": ">=18.0.0"
   },
   "devDependencies": {}
-} 
+}

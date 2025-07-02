@@ -13,11 +13,29 @@ import {
   CheckCircle,
   ChevronDown
 } from "lucide-react";
-import { APP_VERSION, getDownloadLinks } from "@/lib/version";
+'use client';
+
+import { useState, useEffect } from "react";
+import { APP_VERSION, getDownloadLinks, getLatestDownloadLinks } from "@/lib/version";
 
 export default function Home() {
-  // Download links automatically point to latest release
-  const downloadLinks = getDownloadLinks();
+  const [downloadLinks, setDownloadLinks] = useState(getDownloadLinks());
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    // Fetch latest release download links
+    getLatestDownloadLinks()
+      .then((latestLinks) => {
+        if (latestLinks && Object.values(latestLinks).some(link => link)) {
+          setDownloadLinks(latestLinks);
+        }
+        setIsLoading(false);
+      })
+      .catch((error) => {
+        console.warn('Using fallback download links:', error);
+        setIsLoading(false);
+      });
+  }, []);
 
   return (
     <div className="min-h-screen bg-background">

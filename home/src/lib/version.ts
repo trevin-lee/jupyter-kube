@@ -6,11 +6,47 @@ import versionData from '../../../version.json';
 export const APP_VERSION = versionData.version;
 export const GITHUB_REPO = "trevin-lee/jupyter-kube";
 
-// Download links that automatically point to the latest release
-export const getDownloadLinks = () => ({
-  windows: `https://github.com/${GITHUB_REPO}/releases/latest`,
-  mac: `https://github.com/${GITHUB_REPO}/releases/latest`,
-  macIntel: `https://github.com/${GITHUB_REPO}/releases/latest`,
-  linux: `https://github.com/${GITHUB_REPO}/releases/latest`,
-  linuxDeb: `https://github.com/${GITHUB_REPO}/releases/latest`
+// GitHub API endpoint for latest release
+export const LATEST_RELEASE_API = `https://api.github.com/repos/${GITHUB_REPO}/releases/latest`;
+
+// Function to get direct download links for the latest release
+export async function getLatestDownloadLinks() {
+  try {
+    const response = await fetch(LATEST_RELEASE_API);
+    const release = await response.json();
+    
+    if (!release.assets || release.assets.length === 0) {
+      throw new Error('No assets found in latest release');
+    }
+
+    const assets = release.assets;
+    
+    // Helper function to find asset by pattern and return direct download URL
+    const findAsset = (pattern: RegExp) => {
+      const asset = assets.find((asset: any) => pattern.test(asset.name));
+      return asset ? asset.browser_download_url : null;
+    };
+    
+    return {
+      windows: findAsset(/\.exe$/),
+      mac: findAsset(/-arm64\.dmg$/),
+      macIntel: assets.find((asset: any) => /\.dmg$/.test(asset.name) && !/-arm64\.dmg$/.test(asset.name))?.browser_download_url || null,
+      linux: findAsset(/\.AppImage$/),
+      linuxDeb: findAsset(/\.deb$/),
+      version: release.tag_name?.replace('v', '') || 'latest'
+    };
+  } catch (error) {
+    console.warn('Failed to fetch latest release, falling back to current version links:', error);
+    // Fallback to current version direct links
+    return getDownloadLinks();
+  }
+}
+
+// Static download links (fallback)
+export const getDownloadLinks = (version: string = APP_VERSION) => ({
+  windows: `https://github.com/${GITHUB_REPO}/releases/download/v${version}/NRP.Jupyter.Launcher.Setup.${version}.exe`,
+  mac: `https://github.com/${GITHUB_REPO}/releases/download/v${version}/NRP.Jupyter.Launcher-${version}-arm64.dmg`,
+  macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${version}/NRP.Jupyter.Launcher-${version}.dmg`,
+  linux: `https://github.com/${GITHUB_REPO}/releases/download/v${version}/NRP.Jupyter.Launcher-${version}.AppImage`,
+  linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v${version}/jupyter-kube_${version}_amd64.deb`
 }); 

@@ -1,6 +1,6 @@
 {
   "name": "jupyter-kube",
-  "version": "1.0.10",
+  "version": "1.0.11",
   "description": "Kubernetes-based Jupyter environment manager",
   "main": "dist-electron/electron/main.js",
   "author": {

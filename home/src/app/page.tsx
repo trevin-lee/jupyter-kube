@@ -16,7 +16,7 @@ import {
 import { APP_VERSION, getDownloadLinks } from "@/lib/version";
 
 export default function Home() {
-  // Version and download links automatically synced from root version.json
+  // Download links automatically point to latest release
   const downloadLinks = getDownloadLinks();
 
   return (

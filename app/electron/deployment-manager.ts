@@ -5,19 +5,11 @@ import { ManifestManager } from './manifest'
 import { PortForwardManager } from './portforward-manager'
 import type { AppConfig } from '../src/types/app'
 
-// We load k8s at runtime
+import type * as k8sTypes from '@kubernetes/client-node'
 import type { KubeConfig, CoreV1Api, AppsV1Api } from '@kubernetes/client-node'
-
-type K8sModule = typeof import('@kubernetes/client-node')
-let k8sPromise: Promise<K8sModule> | null = null
-const getK8s = () => {
-  if (!k8sPromise) {
-    // Use Function constructor to prevent TypeScript from transpiling this
-    const dynamicImport = new Function('specifier', 'return import(specifier)')
-    k8sPromise = dynamicImport('@kubernetes/client-node') as Promise<K8sModule>
-  }
-  return k8sPromise
-}
+import { getK8s } from './k8s-client'
+import { DEFAULT_NAMESPACE, LABELS, podNameFor } from './constants'
+import { detectDrift } from './drift'
 
 export interface DeploymentStatus {
   exists: boolean
@@ -26,6 +18,8 @@ export interface DeploymentStatus {
   ready?: boolean
   phase?: string
   message?: string
+  /** The live StatefulSet, when one exists — used to detect config drift. */
+  statefulSet?: k8sTypes.V1StatefulSet
 }
 
 export class DeploymentManager {
@@ -75,7 +69,7 @@ export class DeploymentManager {
       logger.info(`[DeploymentManager] Found existing StatefulSet: ${deploymentName}`)
       
       // Check if the pod exists and is ready
-      const podName = `${deploymentName}-0`
+      const podName = podNameFor(deploymentName)
       try {
         const pod = await coreApi.readNamespacedPod({ 
           name: podName, 
@@ -91,6 +85,7 @@ export class DeploymentManager {
           podName: podName,
           ready: isReady,
           phase: phase,
+          statefulSet,
           message: `Found existing deployment ${deploymentName}`
         }
       } catch (podError: any) {
@@ -99,6 +94,7 @@ export class DeploymentManager {
             exists: true,
             statefulSetName: deploymentName,
             ready: false,
+            statefulSet,
             message: `StatefulSet exists but pod not found`
           }
         }
@@ -117,15 +113,75 @@ export class DeploymentManager {
   }
 
   /**
+   * Delete a deployment and everything belonging to it, then wait for the pod to
+   * actually disappear so the replacement StatefulSet can claim the same name.
+   *
+   * Companion objects (SSH Secret, conda ConfigMaps) are deleted too, so their
+   * regenerated contents are picked up rather than the stale copies being reused.
+   */
+  private async deleteStatefulSetAndWait(
+    deploymentName: string,
+    namespace: string,
+    kc: KubeConfig
+  ): Promise<void> {
+    const k8s = await getK8s()
+    const appsApi = kc.makeApiClient(k8s.AppsV1Api)
+    const coreApi = kc.makeApiClient(k8s.CoreV1Api)
+    const labelSelector = `${LABELS.instance}=${deploymentName}`
+
+    const ignoreMissing = (kind: string) => (error: any) => {
+      if (error?.statusCode === 404 || error?.body?.code === 404 || error?.code === 404) return
+      logger.warn(`[DeploymentManager] Failed to delete ${kind}: ${error?.message}`)
+    }
+
+    await coreApi
+      .deleteCollectionNamespacedConfigMap({ namespace, labelSelector })
+      .catch(ignoreMissing('ConfigMaps'))
+    await coreApi
+      .deleteCollectionNamespacedSecret({ namespace, labelSelector })
+      .catch(ignoreMissing('Secrets'))
+    await appsApi
+      .deleteNamespacedStatefulSet({ name: deploymentName, namespace })
+      .catch(ignoreMissing('StatefulSet'))
+
+    // Wait for the pod to terminate. Creating a StatefulSet whose pod name is still
+    // held by a terminating pod leaves the new one stuck Pending.
+    const podName = podNameFor(deploymentName)
+    const timeoutMs = 120000
+    const startedAt = Date.now()
+
+    while (Date.now() - startedAt < timeoutMs) {
+      try {
+        await coreApi.readNamespacedPod({ name: podName, namespace })
+      } catch (error: any) {
+        if (error?.statusCode === 404 || error?.body?.code === 404 || error?.code === 404) {
+          logger.info(`[DeploymentManager] Old pod ${podName} terminated.`)
+          return
+        }
+        throw error
+      }
+      await new Promise((resolve) => setTimeout(resolve, 2000))
+    }
+
+    logger.warn(
+      `[DeploymentManager] Timed out waiting for ${podName} to terminate; continuing anyway.`
+    )
+  }
+
+  /**
    * Ensure pod exists; create if missing. Returns deployment info.
+   *
+   * `onDrift` is invoked when an existing deployment is found whose spec no longer
+   * matches the current config, just before it is replaced.
    */
   public async ensureDeployment(
-    config: AppConfig, 
-    kc: KubeConfig
-  ): Promise<{ 
-    podName: string; 
-    created: boolean; 
-    existingDeployment?: boolean 
+    config: AppConfig,
+    kc: KubeConfig,
+    onDrift?: (changes: string[]) => void
+  ): Promise<{
+    podName: string;
+    created: boolean;
+    existingDeployment?: boolean
   }> {
     logger.info('[DeploymentManager] ensureDeployment called with config:', JSON.stringify({
       kubernetes: config?.kubernetes,
@@ -136,32 +192,49 @@ export class DeploymentManager {
     
     const k8s = await getK8s()
     const deploymentName = await this.computeDeploymentName(config.kubernetes.kubeConfigPath)
-    const namespace = config.kubernetes.namespace || 'default'
+    const namespace = config.kubernetes.namespace || DEFAULT_NAMESPACE
+
+    // Render the desired manifests up front so we can compare them against whatever
+    // is already running. Building manifests is pure object construction — no I/O.
+    const manifests = await this.manifestManager.buildManifests(config, deploymentName)
+    const desiredStatefulSet = manifests.find(
+      (m) => m.kind === 'StatefulSet'
+    ) as k8sTypes.V1StatefulSet | undefined
 
     // Check for existing deployment
     const status = await this.checkExistingDeployment(deploymentName, namespace, kc)
-    
-    if (status.exists && status.ready) {
-      logger.info(`[DeploymentManager] Using existing ready deployment: ${deploymentName}`)
-      return { 
-        podName: status.podName!, 
-        created: false, 
-        existingDeployment: true 
-      }
-    }
 
-    if (status.exists && !status.ready) {
-      logger.info(`[DeploymentManager] Existing deployment found but not ready, waiting...`)
-      return { 
-        podName: `${deploymentName}-0`, 
-        created: false, 
-        existingDeployment: true 
+    if (status.exists && desiredStatefulSet) {
+      const drift = detectDrift(status.statefulSet, desiredStatefulSet)
+
+      if (drift.length > 0) {
+        // The running pod no longer matches the config on screen. Reusing it would
+        // silently ignore the user's changes, so replace it. Safe to delete: all
+        // persistent data lives in externally-managed PVCs, never in the pod.
+        logger.info(
+          `[DeploymentManager] Config changed (${drift.join(', ')}) — replacing deployment ${deploymentName}`
+        )
+        onDrift?.(drift)
+        await this.deleteStatefulSetAndWait(deploymentName, namespace, kc)
+      } else if (status.ready) {
+        logger.info(`[DeploymentManager] Using existing ready deployment: ${deploymentName}`)
+        return {
+          podName: status.podName!,
+          created: false,
+          existingDeployment: true
+        }
+      } else {
+        logger.info(`[DeploymentManager] Existing deployment found but not ready, waiting...`)
+        return {
+          podName: podNameFor(deploymentName),
+          created: false,
+          existingDeployment: true
+        }
       }
     }
 
     // Need to create new deployment
     logger.info('[DeploymentManager] Creating new deployment...')
-    const manifests = await this.manifestManager.buildManifests(config, deploymentName)
     const objectClient = k8s.KubernetesObjectApi.makeApiClient(kc)
     
     for (const manifest of manifests) {
@@ -182,7 +255,7 @@ export class DeploymentManager {
     
     logger.info('[DeploymentManager] Submitted manifests to cluster.')
     return { 
-      podName: `${deploymentName}-0`, 
+      podName: podNameFor(deploymentName), 
       created: true, 
       existingDeployment: false 
     }
@@ -268,7 +341,7 @@ export class DeploymentManager {
    * Stop port forwarding if active
    */
   public stopPortForward(): void {
-    if (this.portForwardManager) {``
+    if (this.portForwardManager) {
       this.portForwardManager.stop()
       this.portForwardManager = null
     }

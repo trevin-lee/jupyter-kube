@@ -17,8 +17,6 @@ export interface GitConfig {
   sshKeyPath: string
   sshKeyContent?: string
   sshKeyTag?: string
-  enableSSHKeyDeployment?: boolean
-  sshKeyDeploymentValidated?: boolean
 }
 
 export interface PvcConfig {
@@ -29,9 +27,30 @@ export interface PvcConfig {
 export interface HardwareConfig {
   cpu: string
   memory: string
-  gpu: string
+  /** Number of GPUs to request. 0 means no GPU. */
   gpuCount: number
+  /**
+   * Extended resource key the cluster advertises GPUs under.
+   * Defaults to `nvidia.com/gpu`; AMD clusters use `amd.com/gpu`, etc.
+   */
+  gpuResourceKey?: string
+  /**
+   * Optional node-label targeting, for picking a specific GPU model.
+   * Left blank, the pod requests a GPU without a nodeSelector and the
+   * scheduler places it on any GPU node — which works on most clusters.
+   * Key varies by cluster: `nvidia.com/gpu.product`, `cloud.google.com/gke-accelerator`, ...
+   */
+  gpuNodeLabelKey?: string
+  gpuNodeLabelValue?: string
   pvcs: PvcConfig[]
+}
+
+export interface ContainerConfig {
+  /**
+   * Container image to run. Required — there is no default, since the image must
+   * be reachable from your cluster. See docker/README.md for what it must provide.
+   */
+  image: string
 }
 
 export interface KubernetesConfig {
@@ -45,13 +64,10 @@ export interface EnvironmentConfig {
 
 export interface AppConfig {
   hardware: HardwareConfig
+  container: ContainerConfig
   kubernetes: KubernetesConfig
   git: GitConfig
   environment: EnvironmentConfig
-  deployment?: {
-    enableGitIntegration: boolean
-    sshKeySecretName?: string
-  }
 }
 
 export interface PodStatus {
@@ -71,15 +87,6 @@ export interface PodStatus {
   }>
 }
 
-export type AppPage = 'configurations' | 'loading' | 'jupyterlab'
-
-export interface AppState {
-  currentPage: AppPage
-  config: AppConfig | null
-  podStatus: PodStatus | null
-  error: string | null
-  isLoading: boolean
-}
 
 // Types shared between main and renderer
 export type DeploymentPhase =
@@ -125,4 +132,5 @@ export interface ElectronAppState {
   };
   kubeConfig: AppKubeConfig;
   hardwareConfig: HardwareConfig;
+  containerConfig: ContainerConfig;
 }

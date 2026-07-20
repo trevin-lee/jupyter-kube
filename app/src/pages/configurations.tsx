@@ -7,9 +7,11 @@ import { Moon, Sun, Monitor, Play } from 'lucide-react'
 import { AppConfig, PvcConfig } from '../types/app'
 import { KubernetesConfigCard } from '../components/KubernetesConfigCard'
 import { HardwareConfigCard } from '../components/HardwareConfigCard'
+import { ContainerConfigCard } from '../components/ContainerConfigCard'
 import { EnvironmentConfigCard } from '../components/EnvironmentConfigCard'
 import { GitConfigCard } from '../components/GitConfigCard'
 import logger from '../api/logger'
+import { imageIssue } from '../api/utils'
 
 interface ConfigurationsPageProps {
   onDeploy: (config: AppConfig) => void
@@ -37,7 +39,6 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
           hardware: {
             cpu: '',
             memory: '',
-            gpu: 'none',
             gpuCount: 0,
             pvcs: []
           },
@@ -49,16 +50,11 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
             username: '',
             email: '',
             sshKeyPath: '',
-            sshKeyContent: undefined,
-            enableSSHKeyDeployment: true,
-            sshKeyDeploymentValidated: false
+            sshKeyContent: undefined
           },
+          container: { image: '' },
           environment: {
             condaEnvironments: []
-          },
-          deployment: {
-            enableGitIntegration: true,
-            sshKeySecretName: undefined
           }
         })
       } finally {
@@ -124,6 +120,20 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
     })
   }
 
+  const handleContainerConfigChange = (field: string, value: string) => {
+    if (!config) return
+
+    setConfig(prevConfig => {
+      if (!prevConfig) return prevConfig
+      const updatedConfig = {
+        ...prevConfig,
+        container: { ...prevConfig.container, [field]: value }
+      }
+      formManager.autoSave(updatedConfig)
+      return updatedConfig
+    })
+  }
+
   const handleKubernetesConfigChange = (field: string, value: string) => {
     if (!config) return
     
@@ -177,18 +187,18 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
     
     const cpuValid = config.hardware.cpu && config.hardware.cpu.trim() !== ''
     const memoryValid = config.hardware.memory && config.hardware.memory.trim() !== ''
-    const gpuValid = config.hardware.gpu === 'none' || config.hardware.gpuCount > 0
+    const imageValid = imageIssue(config.container.image) === null
     const kubeconfigValid = config.kubernetes.kubeConfigPath && config.kubernetes.kubeConfigPath.trim() !== ''
-    
+
     logger.info('🔍 Form validation:', {
       cpu: cpuValid ? config.hardware.cpu : 'MISSING',
-      memory: memoryValid ? config.hardware.memory : 'MISSING', 
-      gpu: gpuValid ? `${config.hardware.gpu} (${config.hardware.gpuCount})` : 'INVALID',
+      memory: memoryValid ? config.hardware.memory : 'MISSING',
+      image: imageValid ? config.container.image : imageIssue(config.container.image),
       kubeconfig: kubeconfigValid ? config.kubernetes.kubeConfigPath : 'MISSING',
-      overall: cpuValid && memoryValid && gpuValid && kubeconfigValid
+      overall: cpuValid && memoryValid && imageValid && kubeconfigValid
     })
-    
-    return cpuValid && memoryValid && gpuValid && kubeconfigValid
+
+    return cpuValid && memoryValid && imageValid && kubeconfigValid
   }
 
   const handleDeploy = () => {
@@ -262,6 +272,12 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
             onConfigChange={handleKubernetesConfigChange}
           />
 
+          {/* Container Image */}
+          <ContainerConfigCard
+            config={config.container}
+            onConfigChange={handleContainerConfigChange}
+          />
+
           {/* Hardware Configuration */}
           <HardwareConfigCard 
             config={config.hardware}
@@ -296,11 +312,14 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
                 <Badge variant="outline">
                   Memory: {config.hardware.memory || 'Not set'}
                 </Badge>
-                {config.hardware.gpu !== 'none' && (
+                {config.hardware.gpuCount > 0 && (
                   <Badge variant="outline">
-                    GPU: {config.hardware.gpuCount}x {config.hardware.gpu}
+                    GPU: {config.hardware.gpuCount}x {config.hardware.gpuNodeLabelValue || 'any'}
                   </Badge>
                 )}
+                <Badge variant="outline">
+                  Image: {config.container.image || 'Not set ⚠'}
+                </Badge>
                 <Badge variant="outline">
                   Environments: {config.environment.condaEnvironments.length > 0 ? `${config.environment.condaEnvironments.length} Added ✓` : 'Not set'}
                 </Badge>
@@ -350,8 +369,8 @@ const ConfigurationsPage: React.FC<ConfigurationsPageProps> = ({ onDeploy, reset
                     {(!config.hardware.memory || config.hardware.memory.trim() === '') && (
                       <Badge variant="destructive">Memory Required</Badge>
                     )}
-                    {config.hardware.gpu !== 'none' && config.hardware.gpuCount <= 0 && (
-                      <Badge variant="destructive">GPU Count Required</Badge>
+                    {imageIssue(config.container.image) && (
+                      <Badge variant="destructive">{imageIssue(config.container.image)}</Badge>
                     )}
                   </div>
                 </div>

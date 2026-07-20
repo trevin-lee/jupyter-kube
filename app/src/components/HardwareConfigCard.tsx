@@ -7,7 +7,6 @@ import { Separator } from "./ui/separator"
 import { Settings, Cpu, HardDrive, Zap, Database, Plus, Trash2 } from 'lucide-react'
 import { HardwareConfig, PvcConfig } from '../types/app'
 import { Button } from "./ui/button"
-import { requiresReservation } from '../api/utils'
 import logger from '../api/logger'
 
 interface HardwareConfigCardProps {
@@ -44,11 +43,6 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
     setMemoryUnit(unit)
   }, [config.memory])
 
-  // Track GPU config changes
-  useEffect(() => {
-    logger.info('🎮 GPU config changed - gpu:', config.gpu, 'gpuCount:', config.gpuCount)
-  }, [config.gpu, config.gpuCount])
-
   const handleMemoryChange = (amount: string, unit: string) => {
     logger.info('💾 Memory change - Amount:', amount, 'Unit:', unit)
     setMemoryAmount(amount)
@@ -56,19 +50,6 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
     const memoryValue = amount ? `${amount}${unit}` : ''
     logger.info('💾 Memory value set to:', memoryValue)
     onConfigChange('memory', memoryValue)
-  }
-
-  const handleGpuChange = (gpuType: string) => {
-    logger.info('🎮 GPU selection changed to:', gpuType)
-    logger.info('🎮 Current config.gpu before change:', config.gpu)
-    onConfigChange('gpu', gpuType)
-    onConfigChange('gpuCount', gpuType === 'none' ? 0 : Math.max(1, config.gpuCount))
-    logger.info('🎮 GPU config updated - Type:', gpuType, 'Count:', gpuType === 'none' ? 0 : Math.max(1, config.gpuCount))
-    
-    // Check the value after a brief delay to see if it updates
-    setTimeout(() => {
-      logger.info('🎮 Config.gpu value after 100ms:', config.gpu)
-    }, 100)
   }
 
   const handleAddPvc = () => {
@@ -87,9 +68,6 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
     )
     onConfigChange('pvcs', updatedPvcs)
   }
-
-  // Debug GPU rendering
-  logger.info('🎮 Rendering Select with config.gpu:', config.gpu)
 
   return (
     <Card>
@@ -154,56 +132,73 @@ export const HardwareConfigCard: React.FC<HardwareConfigCardProps> = ({
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <Label htmlFor="gpu" className="flex items-center gap-2">
-              <Zap className="h-4 w-4" />
-              GPU Type
-            </Label>
-            <Select value={config.gpu} onValueChange={handleGpuChange}>
-              <SelectTrigger>
-                <SelectValue placeholder="Select GPU type" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="none">No GPU</SelectItem>
-                <SelectItem value="any-gpu">Any GPU (General)</SelectItem>
-                <SelectItem value="a40">A40 (48GB VRAM)</SelectItem>
-                <SelectItem value="a100">A100 (40GB/80GB VRAM) - Requires Reservation</SelectItem>
-                <SelectItem value="rtxa6000">Nvidia RTX A6000 (48GB VRAM)</SelectItem>
-                <SelectItem value="rtx8000">Quadro RTX 8000 (48GB VRAM)</SelectItem>
-                <SelectItem value="gh200">Grace Hopper GH200 (96GB HBM3)</SelectItem>
-                <SelectItem value="mig-small">A100 MIG 1g.10gb (10GB VRAM)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="gpuCount" className="flex items-center gap-2">
+              <Zap className="h-4 w-4" />
               GPU Count
             </Label>
             <Input
               id="gpuCount"
               type="number"
-              min={config.gpu === 'none' ? "0" : "1"}
+              min="0"
               max="8"
-              placeholder={config.gpu === 'none' ? "0" : "1"}
-              value={config.gpuCount === 0 && config.gpu === 'none' ? '' : config.gpuCount.toString()}
-              disabled={config.gpu === 'none'}
+              placeholder="0"
+              value={config.gpuCount === 0 ? '' : config.gpuCount.toString()}
               onChange={(e) => {
                 const inputValue = parseInt(e.target.value) || 0
-                const minValue = config.gpu === 'none' ? 0 : 1
-                const value = Math.max(minValue, inputValue)
-                onConfigChange('gpuCount', value)
+                onConfigChange('gpuCount', Math.min(8, Math.max(0, inputValue)))
               }}
             />
             <p className="text-xs text-muted-foreground">
-              Number of GPU devices to allocate
-              {requiresReservation(config.gpu) && (
-                <span className="block text-amber-600 font-medium mt-1">
-                  ⚠️ {config.gpu.toUpperCase()} GPUs require a reservation
-                </span>
-              )}
+              Number of GPU devices to request. Leave at 0 for a CPU-only container.
+            </p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="gpuResourceKey" className="flex items-center gap-2">
+              GPU Resource Key
+            </Label>
+            <Input
+              id="gpuResourceKey"
+              placeholder="nvidia.com/gpu"
+              value={config.gpuResourceKey ?? ''}
+              disabled={config.gpuCount === 0}
+              onChange={(e) => onConfigChange('gpuResourceKey', e.target.value)}
+            />
+            <p className="text-xs text-muted-foreground">
+              Extended resource your cluster advertises GPUs under. Defaults to
+              <code className="mx-1">nvidia.com/gpu</code>.
             </p>
           </div>
         </div>
+
+        {config.gpuCount > 0 && (
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="gpuNodeLabelKey">Node Label Key (optional)</Label>
+              <Input
+                id="gpuNodeLabelKey"
+                placeholder="nvidia.com/gpu.product"
+                value={config.gpuNodeLabelKey ?? ''}
+                onChange={(e) => onConfigChange('gpuNodeLabelKey', e.target.value)}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="gpuNodeLabelValue">Node Label Value (optional)</Label>
+              <Input
+                id="gpuNodeLabelValue"
+                placeholder="NVIDIA-A100-SXM4-80GB"
+                value={config.gpuNodeLabelValue ?? ''}
+                onChange={(e) => onConfigChange('gpuNodeLabelValue', e.target.value)}
+              />
+            </div>
+            <p className="text-xs text-muted-foreground md:col-span-2">
+              Only needed to pin a specific GPU model. Leave both blank and the scheduler
+              places the pod on any node with a free GPU. The label key is cluster-specific —
+              find yours with{' '}
+              <code>kubectl get nodes --show-labels</code>. Set both fields or neither.
+            </p>
+          </div>
+        )}
 
         <Separator />
 

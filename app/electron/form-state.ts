@@ -3,7 +3,7 @@ import { logger } from './logging-service'
 import { CondaConfigManager } from './conda-config'
 import { GitConfigManager } from './git-config'
 import { KubeConfigManager } from './kube-config'
-import { ElectronAppState, CondaEnvironment, GitGlobalConfig, SSHKeyInfo, AppKubeConfig, HardwareConfig } from '../src/types/app'
+import { ElectronAppState, CondaEnvironment, GitGlobalConfig, SSHKeyInfo, AppKubeConfig, HardwareConfig, ContainerConfig } from '../src/types/app'
 import { promises as fs } from 'fs'
 
 export class FormStateManager {
@@ -13,16 +13,19 @@ export class FormStateManager {
   private gitManager: GitConfigManager
   private kubeManager: KubeConfigManager
   private hardwareConfig: HardwareConfig
+  private containerConfig: ContainerConfig
   private readonly defaults: ElectronAppState
 
   private constructor() {
     const defaultHardware: HardwareConfig = {
       cpu: '',
       memory: '',
-      gpu: 'none',
       gpuCount: 0,
       pvcs: []
     }
+
+    // No default image: it must be reachable from the user's own cluster.
+    const defaultContainer: ContainerConfig = { image: '' }
 
     this.defaults = {
       condaConfig: { environments: [] },
@@ -39,7 +42,8 @@ export class FormStateManager {
         namespace: '',
         availableNamespaces: []
       },
-      hardwareConfig: defaultHardware
+      hardwareConfig: defaultHardware,
+      containerConfig: defaultContainer
     }
 
     this.store = new Store<ElectronAppState>({
@@ -51,6 +55,7 @@ export class FormStateManager {
     this.gitManager = GitConfigManager.getInstance()
     this.kubeManager = KubeConfigManager.getInstance()
     this.hardwareConfig = defaultHardware
+    this.containerConfig = defaultContainer
 
     logger.info(
       `[FormStateManager] Initialized. Config file path: ${this.store.path}`
@@ -72,12 +77,21 @@ export class FormStateManager {
     return this.hardwareConfig
   }
 
+  public setContainerConfig(config: ContainerConfig): void {
+    this.containerConfig = config
+  }
+
+  public getContainerConfig(): ContainerConfig {
+    return this.containerConfig
+  }
+
   public saveState(): void {
     const currentState: ElectronAppState = {
       condaConfig: this.condaManager.getConfig(),
       gitConfig: this.gitManager.getConfig(),
       kubeConfig: this.kubeManager.getConfig(),
-      hardwareConfig: this.hardwareConfig
+      hardwareConfig: this.hardwareConfig,
+      containerConfig: this.containerConfig
     }
     try {
       this.store.set(currentState)
@@ -99,6 +113,11 @@ export class FormStateManager {
         if (loadedState.hardwareConfig) {
           this.hardwareConfig = loadedState.hardwareConfig
           logger.info('[FormStateManager] Hardware configuration loaded:', this.hardwareConfig)
+        }
+
+        if (loadedState.containerConfig) {
+          this.containerConfig = loadedState.containerConfig
+          logger.info('[FormStateManager] Container configuration loaded:', this.containerConfig)
         }
         
         // For SSH keys, load content and extract tags if they're missing
@@ -149,6 +168,7 @@ export class FormStateManager {
       this.gitManager.setConfig(this.defaults.gitConfig)
       this.kubeManager.setConfig(this.defaults.kubeConfig)
       this.hardwareConfig = this.defaults.hardwareConfig
+      this.containerConfig = this.defaults.containerConfig
       return this.defaults
     }
   }
@@ -158,7 +178,8 @@ export class FormStateManager {
       condaConfig: this.condaManager.getConfig(),
       gitConfig: this.gitManager.getConfig(),
       kubeConfig: this.kubeManager.getConfig(),
-      hardwareConfig: this.hardwareConfig
+      hardwareConfig: this.hardwareConfig,
+      containerConfig: this.containerConfig
     }
   }
 }

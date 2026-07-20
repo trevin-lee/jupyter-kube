@@ -1,17 +1,7 @@
 import * as net from 'net'
 import { logger } from './logging-service'
 import type { KubeConfig } from '@kubernetes/client-node'
-
-type K8sModule = typeof import('@kubernetes/client-node')
-let k8sPromise: Promise<K8sModule> | null = null
-const getK8s = () => {
-  if (!k8sPromise) {
-    // Use Function constructor to prevent TypeScript from transpiling this
-    const dynamicImport = new Function('specifier', 'return import(specifier)')
-    k8sPromise = dynamicImport('@kubernetes/client-node') as Promise<K8sModule>
-  }
-  return k8sPromise
-}
+import { getK8s } from './k8s-client'
 
 export class PortForwardManager {
   private server: net.Server | null = null

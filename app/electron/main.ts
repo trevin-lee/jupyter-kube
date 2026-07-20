@@ -156,11 +156,12 @@ app.on('ready', async () => {
 // IPC Handlers
 ipcMain.handle('dialog:openFile', async () => {
     const { canceled, filePaths } = await dialog.showOpenDialog(mainWindow!, {
-        properties: ['openFile']
+        properties: ['openFile', 'showHiddenFiles']
     });
-    if (!canceled) {
-        return filePaths[0];
+    if (canceled || filePaths.length === 0) {
+        return null;
     }
+    return filePaths[0];
 });
 
 // Global configuration
@@ -175,6 +176,12 @@ ipcMain.on('app:saveState', () => {
 // Hardware configuration handlers
 ipcMain.handle('hardware:update', (event, hardwareConfig) => {
     formStateManager.setHardwareConfig(hardwareConfig);
+    return true;
+});
+
+// Container configuration handlers
+ipcMain.handle('container:update', (event, containerConfig) => {
+    formStateManager.setContainerConfig(containerConfig);
     return true;
 });
 

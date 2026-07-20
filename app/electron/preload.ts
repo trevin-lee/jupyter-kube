@@ -20,6 +20,11 @@ contextBridge.exposeInMainWorld('electronAPI', {
     update: (config: any) => ipcRenderer.invoke('hardware:update', config),
   },
 
+  // Container configuration APIs
+  containerConfig: {
+    update: (config: any) => ipcRenderer.invoke('container:update', config),
+  },
+
   // Environment configuration APIs
   environmentConfig: {
     update: (environments: any[]) => ipcRenderer.invoke('environment:update', environments),
@@ -32,7 +37,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
     detect: () => ipcRenderer.invoke('git:detect'),
     detectSSHKeys: () => ipcRenderer.invoke('git:detectSSHKeys'),
     update: (gitConfig: any) => ipcRenderer.invoke('git:update', gitConfig),
-    openSSHKeyDialog: () => ipcRenderer.invoke('git:openSSHKeyDialog'),
+    openSSHKeyDialog: () => ipcRenderer.invoke('dialog:openFile'),
     readSSHKey: (keyPath: string) => ipcRenderer.invoke('git:readSSHKey', keyPath),
     extractSSHKeyTag: (content: string) => ipcRenderer.invoke('git:extractSSHKeyTag', content),
   },

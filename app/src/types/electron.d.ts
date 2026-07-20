@@ -1,4 +1,4 @@
-import { GitGlobalConfig, SSHKeyInfo, AppKubeConfig, DeploymentProgress, ElectronAppState, HardwareConfig, CondaEnvironment } from './app';
+import { GitGlobalConfig, SSHKeyInfo, AppKubeConfig, DeploymentProgress, ElectronAppState, HardwareConfig, ContainerConfig, CondaEnvironment } from './app';
 
 export interface IElectronAPI {
   platform: string;
@@ -15,6 +15,10 @@ export interface IElectronAPI {
 
   hardwareConfig: {
     update: (config: HardwareConfig) => Promise<boolean>;
+  };
+
+  containerConfig: {
+    update: (config: ContainerConfig) => Promise<boolean>;
   };
 
   environmentConfig: {

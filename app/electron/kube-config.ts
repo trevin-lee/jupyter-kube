@@ -1,24 +1,9 @@
-// We load the ESM-only @kubernetes/client-node at runtime via dynamic import
-type K8s = typeof import('@kubernetes/client-node')
-
-let k8sPromise: Promise<K8s> | null = null
-function getK8s(): Promise<K8s> {
-  if (!k8sPromise) {
-    const dynamicImporter = new Function(
-      'modulePath',
-      'return import(modulePath)'
-    ) as (path: string) => Promise<K8s>
-
-    k8sPromise = dynamicImporter('@kubernetes/client-node')
-  }
-  return k8sPromise
-}
+import { getK8s } from './k8s-client'
 
 import * as path from 'path'
 import * as os from 'os'
 import * as fs from 'fs'
 import * as yaml from 'js-yaml'
-import Store from 'electron-store'
 import { app, dialog } from 'electron'
 import { logger } from './logging-service'
 import { AppKubeConfig } from '../src/types/app'
@@ -61,9 +46,53 @@ export class KubeConfigManager {
     this.config = newConfig
   }
 
+  /**
+   * Load a kubeconfig file and read the context/namespace information out of it.
+   *
+   * Note this only ever parses the kubeconfig *text* — `availableNamespaces` is the
+   * set of `namespace:` fields declared on context entries, not a live list from the
+   * API server. A kubeconfig with one context that has access to many namespaces
+   * therefore yields exactly one entry.
+   */
+  private async inspectKubeConfig(configPath: string): Promise<{
+    currentContext: string
+    namespace: string | null
+    availableNamespaces: string[]
+  }> {
+    const k8s = await getK8s()
+    if (!this.k8sConfig) this.k8sConfig = new k8s.KubeConfig()
+    const fileContent = await fs.promises.readFile(configPath, { encoding: 'utf8' })
+
+    this.k8sConfig.loadFromString(fileContent)
+
+    const currentContext = this.k8sConfig.getCurrentContext()
+    logger.info(`[KubeConfigManager] Current context: ${currentContext}`)
+
+    const contextObject = this.k8sConfig.getContextObject(currentContext)
+    const namespace = contextObject?.namespace ?? null
+    if (namespace) {
+      logger.info(`[KubeConfigManager] Detected namespace from context: ${namespace}`)
+    } else {
+      logger.info('[KubeConfigManager] No namespace specified in current context.')
+    }
+
+    // `this.k8sConfig` is untyped (`any`), so annotate explicitly — otherwise the
+    // Set round-trip widens back to unknown[].
+    const namespaces: string[] = this.k8sConfig
+      .getContexts()
+      .map((c: { namespace?: string }) => c.namespace)
+      .filter((ns: string | undefined): ns is string => !!ns)
+    const availableNamespaces: string[] = Array.from(new Set(namespaces))
+    logger.info(
+      `[KubeConfigManager] Found ${availableNamespaces.length} unique namespaces in contexts.`
+    )
+
+    return { currentContext, namespace, availableNamespaces }
+  }
+
   public async autoDetectKubeConfig(): Promise<AppKubeConfig> {
     logger.info('[KubeConfigManager] Starting auto-detection...')
-    
+
     // Reset state before detection
     this.config = {
       kubeConfigPath: null,
@@ -71,7 +100,7 @@ export class KubeConfigManager {
       namespace: null,
       availableNamespaces: []
     }
-    
+
     const configPath = await this.detectKubeConfigPath()
 
     if (configPath) {
@@ -80,38 +109,10 @@ export class KubeConfigManager {
         `[KubeConfigManager] Found kubeconfig file at: ${configPath}`
       )
       try {
-        const k8s = await getK8s()
-        if (!this.k8sConfig) this.k8sConfig = new k8s.KubeConfig()
-        const fileContent = await fs.promises.readFile(configPath, { encoding: 'utf8' })
-        
-        // Load the kubeconfig as-is
-        this.k8sConfig.loadFromString(fileContent)
-
-        const currentContext = this.k8sConfig.getCurrentContext()
-        this.config.currentContext = currentContext
-        logger.info(`[KubeConfigManager] Current context: ${currentContext}`)
-
-        const contextObject = this.k8sConfig.getContextObject(currentContext)
-        if (contextObject?.namespace) {
-          this.config.namespace = contextObject.namespace
-          logger.info(
-            `[KubeConfigManager] Detected namespace from context: ${contextObject.namespace}`
-          )
-        } else {
-          logger.info(
-            `[KubeConfigManager] No namespace specified in current context.`
-          )
-          this.config.namespace = null
-        }
-
-        const contexts = this.k8sConfig.getContexts()
-        const namespaces = contexts
-          .map((c: { namespace?: string }) => c.namespace)
-          .filter((ns: string | undefined): ns is string => !!ns)
-        this.config.availableNamespaces = Array.from(new Set(namespaces))
-        logger.info(
-          `[KubeConfigManager] Found ${this.config.availableNamespaces.length} unique namespaces in contexts.`
-        )
+        const inspected = await this.inspectKubeConfig(configPath)
+        this.config.currentContext = inspected.currentContext
+        this.config.namespace = inspected.namespace
+        this.config.availableNamespaces = inspected.availableNamespaces
       } catch (error) {
         logger.error(
           `[KubeConfigManager] Error loading or parsing kubeconfig file from ${configPath} \nStack: ${(error as Error).stack}`
@@ -143,36 +144,15 @@ export class KubeConfigManager {
     }
     
     try {
-      const k8s = await getK8s()
-      if (!this.k8sConfig) this.k8sConfig = new k8s.KubeConfig()
-      const fileContent = await fs.promises.readFile(this.config.kubeConfigPath, { encoding: 'utf8' })
-      
-      // Load the kubeconfig
-      this.k8sConfig.loadFromString(fileContent)
-      
-      const currentContext = this.k8sConfig.getCurrentContext()
-      const contextObject = this.k8sConfig.getContextObject(currentContext)
-      
-      let detectedNamespace = null
-      if (contextObject?.namespace) {
-        detectedNamespace = contextObject.namespace
-        logger.info(`[KubeConfigManager] Detected namespace from context: ${detectedNamespace}`)
-      }
-      
-      // Get all unique namespaces from contexts
-      const contexts = this.k8sConfig.getContexts()
-      const namespaces = contexts
-        .map((c: any) => c.namespace as string | undefined)
-        .filter((ns: string | undefined): ns is string => !!ns)
-      const availableNamespaces: string[] = Array.from(new Set(namespaces))
-      
-      logger.info(`[KubeConfigManager] Found ${availableNamespaces.length} unique namespaces in contexts`)
-      
+      const { namespace, availableNamespaces } = await this.inspectKubeConfig(
+        this.config.kubeConfigPath
+      )
+
       // Update the stored config with detected values
-      this.config.namespace = detectedNamespace
+      this.config.namespace = namespace
       this.config.availableNamespaces = availableNamespaces
-      
-      return { namespace: detectedNamespace, availableNamespaces }
+
+      return { namespace, availableNamespaces }
     } catch (error) {
       logger.error(`[KubeConfigManager] Error detecting namespaces: ${(error as Error).message}`)
       return { namespace: null, availableNamespaces: [] }

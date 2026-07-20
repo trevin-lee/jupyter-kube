@@ -2,6 +2,39 @@
 
 This Docker container provides a fully configured JupyterLab environment with conda environment support, Git integration, and on-demand environment processing for Kubernetes deployment.
 
+## Image Requirements
+
+Jupyter Kube Launcher ships **no default image** — you supply one that your own cluster can pull. This directory builds a compatible reference image; build and push it to a registry your cluster can reach, then paste that reference into the app's **Container Image** field.
+
+Any image works as long as it meets this contract:
+
+| Requirement | Detail |
+|---|---|
+| **JupyterLab on port 8888** | The app port-forwards to 8888 and embeds the result in an iframe. |
+| **Token auth disabled** | `jupyter_lab_config.py` sets `token=''` and `password=''`. The app does not pass a token, so a token-protected server shows a login page it cannot get past. |
+| **iframe embedding allowed** | The app renders JupyterLab in an iframe; a server sending restrictive `X-Frame-Options` / `frame-ancestors` renders blank. |
+| **Starts via its own `CMD`** | The app does **not** override the entrypoint, so the image must start JupyterLab on its own. |
+
+Optional — only needed for the corresponding feature:
+
+| Feature | What the image must do |
+|---|---|
+| Git identity | Read `GIT_USER_NAME` / `GIT_USER_EMAIL` env vars |
+| SSH keys | Read keys mounted read-only at `/tmp/ssh-keys` |
+| Conda environments | Read YAML files mounted at `/home/jovyan/main/environments/<file>` |
+| Persistent volumes | PVCs are mounted at `/home/jovyan/main/<pvc-name>` |
+
+Note the conda and PVC mount paths are currently fixed at `/home/jovyan/main`, which matches the Jupyter docker-stacks convention this image is built on. An image using a different home directory still runs, but those two features won't land where it expects them.
+
+### Building and publishing
+
+```bash
+docker build -t ghcr.io/<you>/jupyter-kube:latest -f docker/dockerfile .
+docker push ghcr.io/<you>/jupyter-kube:latest
+```
+
+If the registry is private, the cluster needs a pull secret — the app does not currently set `imagePullSecrets`, so attach one to the namespace's default service account.
+
 ## Files Overview
 
 ### 📄 Core Configuration

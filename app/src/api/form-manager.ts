@@ -8,7 +8,6 @@ const dummy: AppConfig = {
   hardware: {
     cpu: '',
     memory: '',
-    gpu: 'none',
     gpuCount: 0,
     pvcs: [],
   },
@@ -20,11 +19,9 @@ const dummy: AppConfig = {
     username: '',
     email: '',
     sshKeyPath: '',
-    enableSSHKeyDeployment: true,
-    sshKeyDeploymentValidated: false,
   },
+  container: { image: '' },
   environment: { condaEnvironments: [] },
-  deployment: { enableGitIntegration: true },
 }
 
 const hasBridge = typeof window !== 'undefined' && !!window.electronAPI
@@ -72,7 +69,6 @@ export async function getConfigWithAutoDetection(): Promise<AppConfig> {
       hardware: full.hardwareConfig || {
         cpu: '',
         memory: '',
-        gpu: 'none',
         gpuCount: 0,
         pvcs: [],
       },
@@ -86,11 +82,9 @@ export async function getConfigWithAutoDetection(): Promise<AppConfig> {
         sshKeyPath: firstSshKey?.path || '',
         sshKeyContent: firstSshKey?.content,
         sshKeyTag: firstSshKey?.tag,
-        enableSSHKeyDeployment: true,
-        sshKeyDeploymentValidated: false,
       },
+      container: full.containerConfig || { image: '' },
       environment: { condaEnvironments: full.condaConfig.environments },
-      deployment: { enableGitIntegration: true },
     }
   }
   return dummy
@@ -100,6 +94,11 @@ export function autoSave(config: AppConfig) {
   if (hasBridge) {
     // Update hardware configuration on the backend
     window.electronAPI.hardwareConfig.update(config.hardware);
+
+    // Update container configuration on the backend
+    if (config.container) {
+      window.electronAPI.containerConfig.update(config.container);
+    }
     
     // Update conda environments on the backend
     if (config.environment && config.environment.condaEnvironments) {

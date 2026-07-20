@@ -4,7 +4,7 @@ import { Button } from '../components/ui/button'
 import { Badge } from '../components/ui/badge'
 import { Loader2, CheckCircle, XCircle, ArrowLeft, Server, Rocket } from 'lucide-react'
 import { AppConfig, PodStatus, DeploymentProgress } from '../types/app'
-import { getGpuDisplayName } from '../api/utils'
+import { describeGpuRequest } from '../api/utils'
 import logger from '../api/logger'
 
 interface LoadingPageProps {
@@ -214,7 +214,7 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
                 <div>
                   <span className="font-medium">Image:</span>
                   <p className="text-muted-foreground text-xs break-all">
-                    gitlab-registry.nrp-nautilus.io/trevin/jupyter-kube/jupyter:latest
+                    {config.container.image}
                   </p>
                 </div>
                 <div>
@@ -223,11 +223,11 @@ const LoadingPage: React.FC<LoadingPageProps> = ({ config, onSuccess, onError, o
                     {config.hardware.cpu} CPU, {config.hardware.memory} Memory
                   </p>
                 </div>
-                {config.hardware.gpu !== 'none' && (
+                {config.hardware.gpuCount > 0 && (
                   <div>
                     <span className="font-medium">GPU:</span>
                     <p className="text-muted-foreground">
-                      {config.hardware.gpuCount}x {getGpuDisplayName(config.hardware.gpu)}
+                      {describeGpuRequest(config.hardware.gpuCount, config.hardware.gpuNodeLabelValue)}
                     </p>
                   </div>
                 )}

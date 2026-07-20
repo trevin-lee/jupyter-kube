@@ -1,13 +1,9 @@
 import { promises as fs } from 'fs'
 import * as path from 'path'
 import { logger } from './logging-service'
+import type { CondaEnvironment } from '../src/types/app'
 
-export interface CondaEnvironment {
-  id: string
-  name: string
-  content: string
-  filePath?: string
-}
+export type { CondaEnvironment }
 
 export interface CondaConfig {
   environments: CondaEnvironment[]
@@ -59,7 +55,9 @@ export class CondaConfigManager {
         id: Date.now().toString() + Math.random().toString(), // Simple unique ID
         name,
         content,
-        filePath
+        // Must be `fileName` (a basename), not the full path: manifest.ts keys the
+        // ConfigMap and the mount subPath off this field, and the renderer displays it.
+        fileName: path.basename(filePath)
       }
 
       this.addEnvironment(newEnvironment)

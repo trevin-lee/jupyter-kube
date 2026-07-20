@@ -2,50 +2,16 @@ import type * as k8sTypes from '@kubernetes/client-node'
 import * as path from 'path'
 import { logger } from './logging-service'
 import { AppConfig } from '../src/types/app'
-
-// These types should ideally be shared from `app/src/types/app.ts`
-// Re-declaring them here to avoid complex build configurations for now.
-export interface PvcConfig {
-  name: string
-  mountPath?: string
-}
-export interface HardwareConfig {
-  cpu: string
-  memory: string
-  gpu: string
-  gpuCount: number
-  pvcs: PvcConfig[]
-}
-export interface KubernetesConfig {
-  kubeConfigPath: string
-  namespace?: string
-}
-export interface CondaEnvironment {
-  id: string
-  name: string
-  content: string
-  fileName?: string
-}
-export interface EnvironmentConfig {
-  condaEnvironments: CondaEnvironment[]
-}
-export interface GitConfig {
-  username: string
-  email: string
-  sshKeyPath: string
-  sshKeyContent?: string
-}
-
-type K8sModule = typeof import('@kubernetes/client-node')
-let k8sPromise: Promise<K8sModule> | null = null
-const getK8s = () => {
-  if (!k8sPromise) {
-    // Use Function constructor to prevent TypeScript from transpiling this
-    const dynamicImport = new Function('specifier', 'return import(specifier)')
-    k8sPromise = dynamicImport('@kubernetes/client-node') as Promise<K8sModule>
-  }
-  return k8sPromise
-}
+import { getK8s } from './k8s-client'
+import {
+  DEFAULT_GPU_RESOURCE_KEY,
+  DEFAULT_NAMESPACE,
+  LABELS,
+  LABEL_VALUES,
+  condaConfigMapName,
+  instanceLabels,
+  sshSecretName
+} from './constants'
 
 export class ManifestManager {
   private static instance: ManifestManager
@@ -111,8 +77,8 @@ export class ManifestManager {
       return null
     }
 
-    const secretName = `${baseName}-ssh-secret`
-    
+    const secretName = sshSecretName(baseName)
+
     // Extract the key filename from the path (e.g., id_rsa, id_ed25519, etc.)
     const keyFileName = git.sshKeyPath ? path.basename(git.sshKeyPath) : 'id_rsa'
 
@@ -121,12 +87,10 @@ export class ManifestManager {
       kind: 'Secret',
       metadata: {
         name: secretName,
-        namespace: kubernetes.namespace || 'default',
+        namespace: kubernetes.namespace || DEFAULT_NAMESPACE,
         labels: {
-          'app': 'jupyter-lab',
-          'managed-by': 'jupyter-kube-app',
-          'instance': baseName,
-          'type': 'ssh-key'
+          ...instanceLabels(baseName),
+          [LABELS.type]: LABEL_VALUES.sshKey
         }
       },
       type: 'Opaque',
@@ -148,23 +112,19 @@ export class ManifestManager {
   private buildStatefulSet(
     config: AppConfig,
     baseName: string,
-    sshSecretName: string | null,
+    sshSecretRef: string | null,
     manifests: k8sTypes.KubernetesObject[]
   ): void {
-    const { hardware, git, kubernetes, environment } = config
+    const { hardware, container, git, kubernetes, environment } = config
 
-    const podLabels = {
-      app: 'jupyter-lab',
-      'managed-by': 'jupyter-kube-app',
-      instance: baseName
-    }
+    const podLabels = instanceLabels(baseName)
 
     const statefulSet: k8sTypes.V1StatefulSet = {
       apiVersion: 'apps/v1',
       kind: 'StatefulSet',
       metadata: {
         name: baseName,
-        namespace: kubernetes.namespace || 'default',
+        namespace: kubernetes.namespace || DEFAULT_NAMESPACE,
         labels: podLabels
       },
       spec: {
@@ -181,12 +141,13 @@ export class ManifestManager {
               containers: [
                 {
                   name: 'jupyter-container',
-                  image:
-                    'gitlab-registry.nrp-nautilus.io/trevin/jupyter-kube/jupyter:latest',
+                  image: container.image,
                   imagePullPolicy: 'Always',
                   ports: [{ containerPort: 8888 }],
                   env: [],
-                  command: ['/home/jovyan/start-jupyter.sh'],
+                  // No `command` override: we run whatever the image's own CMD is.
+                  // Overriding the entrypoint would break any image that doesn't
+                  // happen to use the same startup script layout.
                 resources: {
                   requests: {
                     cpu: this.normalizeResourceQuantity(hardware.cpu),
@@ -227,24 +188,32 @@ export class ManifestManager {
       })
     }
 
-    if (hardware.gpu !== 'none' && hardware.gpuCount > 0) {
+    if (hardware.gpuCount > 0) {
       if (!podSpec.containers[0].resources) podSpec.containers[0].resources = {};
       if (!podSpec.containers[0].resources.limits) podSpec.containers[0].resources.limits = {};
-      podSpec.containers[0].resources!.limits!['nvidia.com/gpu'] = String(
+      const gpuResourceKey = hardware.gpuResourceKey?.trim() || DEFAULT_GPU_RESOURCE_KEY
+      podSpec.containers[0].resources!.limits![gpuResourceKey] = String(
         hardware.gpuCount
       )
-      if (hardware.gpu !== 'any-gpu') {
+
+      // Node targeting is optional. Without it the scheduler picks any node that
+      // can satisfy the GPU resource request, which works on most clusters. A
+      // label key/value is only needed to pin a specific GPU model, and the key
+      // is cluster-specific (nvidia.com/gpu.product, cloud.google.com/gke-accelerator, ...).
+      const labelKey = hardware.gpuNodeLabelKey?.trim()
+      const labelValue = hardware.gpuNodeLabelValue?.trim()
+      if (labelKey && labelValue) {
         if (!podSpec.nodeSelector) podSpec.nodeSelector = {};
-        podSpec.nodeSelector['gpu-type'] = hardware.gpu
+        podSpec.nodeSelector[labelKey] = labelValue
       }
     }
 
-    if (sshSecretName) {
+    if (sshSecretRef) {
       if (!podSpec.volumes) podSpec.volumes = [];
       podSpec.volumes!.push({
         name: 'ssh-key-volume',
         secret: {
-          secretName: sshSecretName,
+          secretName: sshSecretRef,
           defaultMode: 0o444  // Make readable by all users in the container
         }
       })
@@ -260,7 +229,7 @@ export class ManifestManager {
     logger.info(`[ManifestManager] Processing ${environment.condaEnvironments.length} conda environments`)
     for (const env of environment.condaEnvironments) {
       logger.info(`[ManifestManager] Adding conda environment: ${env.name}`)
-      const configMapName = `${baseName}-conda-${env.name}`.toLowerCase()
+      const configMapName = condaConfigMapName(baseName, env.name)
       const fileName = env.fileName
         ? path.basename(env.fileName)
         : `${env.name}.yml`
@@ -270,12 +239,10 @@ export class ManifestManager {
         kind: 'ConfigMap',
         metadata: {
           name: configMapName,
-          namespace: kubernetes.namespace || 'default',
+          namespace: kubernetes.namespace || DEFAULT_NAMESPACE,
           labels: {
-            'app': 'jupyter-lab',
-            'managed-by': 'jupyter-kube-app',
-            'instance': baseName,
-            'type': 'conda-environment'
+            ...instanceLabels(baseName),
+            [LABELS.type]: LABEL_VALUES.condaEnvironment
           }
         },
         data: {

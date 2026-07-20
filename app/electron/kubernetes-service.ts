@@ -7,19 +7,8 @@ import { execFileSync } from 'child_process';
 // type-only for compile-time helpers (no runtime import)
 import type { KubeConfig, CoreV1Api, AppsV1Api, Watch, PortForward } from '@kubernetes/client-node';
 
-// Runtime dynamic import helper (ESM-only module)
-type K8sModule = typeof import('@kubernetes/client-node');
-let k8sPromise: Promise<K8sModule> | null = null;
-const getK8s = () => {
-  if (!k8sPromise) {
-    const dynamicImporter = new Function(
-      'modulePath',
-      'return import(modulePath)'
-    ) as (path: string) => Promise<K8sModule>;
-    k8sPromise = dynamicImporter('@kubernetes/client-node');
-  }
-  return k8sPromise;
-};
+import { getK8s } from './k8s-client';
+import { DEFAULT_NAMESPACE, LABELS, LABEL_VALUES, sshSecretName } from './constants';
 
 import { ManifestManager } from './manifest';
 import { logger } from './logging-service';
@@ -217,7 +206,7 @@ export class KubernetesService {
 
         this.k8sApi = this.kc.makeApiClient(k8s.CoreV1Api);
         this.k8sAppsApi = this.kc.makeApiClient(k8s.AppsV1Api);
-        this.namespace = config.kubeConfig.namespace || 'default';
+        this.namespace = config.kubeConfig.namespace || DEFAULT_NAMESPACE;
         
         this.sendProgress({ phase: 'initializing', message: 'Kubernetes configuration loaded', progress: 10 });
     }
@@ -270,9 +259,10 @@ export class KubernetesService {
             const appConfig: AppConfig = {
                 kubernetes: {
                     kubeConfigPath: config.kubeConfig.kubeConfigPath!,
-                    namespace: config.kubeConfig.namespace || 'default'
+                    namespace: config.kubeConfig.namespace || DEFAULT_NAMESPACE
                 },
                 hardware: config.hardwareConfig,
+                container: config.containerConfig || { image: '' },
                 git: {
                     username: config.gitConfig.globalConfig.username,
                     email: config.gitConfig.globalConfig.email,
@@ -294,7 +284,13 @@ export class KubernetesService {
                 keyTag: config.gitConfig.sshKeys?.[0]?.tag
             });
             
-            const ensure = await this.deploymentMgr.ensureDeployment(appConfig, this.kc!);
+            const ensure = await this.deploymentMgr.ensureDeployment(appConfig, this.kc!, (changes) => {
+                this.sendProgress({
+                    phase: 'creating-manifests',
+                    message: `Configuration changed (${changes.join(', ')}) — replacing deployment...`,
+                    progress: 25
+                });
+            });
             this.deploymentName = ensure.podName.replace(/-0$/, '');
 
             if (ensure.existingDeployment && !ensure.created) {
@@ -620,7 +616,7 @@ export class KubernetesService {
             }
             
             // Delete SSH key Secret
-            const secretName = `${deploymentName}-ssh-secret`;
+            const secretName = sshSecretName(deploymentName);
             try {
                 await this.k8sApi.deleteNamespacedSecret({ name: secretName, namespace: this.namespace });
                 logger.info(`Deleted Secret: ${secretName}`);
@@ -643,7 +639,7 @@ export class KubernetesService {
                 // Filter for ConfigMaps that belong to this deployment
                 const condaConfigMaps = allConfigMaps.items.filter(cm => {
                     const labels = cm.metadata?.labels || {};
-                    return labels['instance'] === deploymentName && labels['type'] === 'conda-environment';
+                    return labels[LABELS.instance] === deploymentName && labels[LABELS.type] === LABEL_VALUES.condaEnvironment;
                 });
                 
                 if (condaConfigMaps.length > 0) {

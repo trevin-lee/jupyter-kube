@@ -20,10 +20,10 @@ export default function Home() {
   const VERSION = "1.1.1";
   
   const downloadLinks = {
-    windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher.Setup.${VERSION}.exe`,
-    mac: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}-arm64.dmg`,
-    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.dmg`,
-    linux: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/NRP.Jupyter.Launcher-${VERSION}.AppImage`,
+    windows: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/Jupyter.Kube.Launcher.Setup.${VERSION}.exe`,
+    mac: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/Jupyter.Kube.Launcher-${VERSION}-arm64.dmg`,
+    macIntel: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/Jupyter.Kube.Launcher-${VERSION}.dmg`,
+    linux: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/Jupyter.Kube.Launcher-${VERSION}.AppImage`,
     linuxDeb: `https://github.com/${GITHUB_REPO}/releases/download/v${VERSION}/jupyter-kube_${VERSION}_amd64.deb`
   };
 
@@ -34,15 +34,15 @@ export default function Home() {
         <div className="container mx-auto px-4 py-6">
           <div className="flex items-center gap-3">
             <Image
-              src="/nrp-jl-icon.svg"
-              alt="NRP Jupyter Launcher"
+              src="/jupyter-kube-icon.svg"
+              alt="Jupyter Kube Launcher"
               width={40}
               height={40}
               className="rounded-lg"
             />
             <div>
-              <h1 className="text-xl font-semibold">NRP Jupyter Launcher</h1>
-              <p className="text-sm text-muted-foreground">National Research Platform Jupyter Environment Manager</p>
+              <h1 className="text-xl font-semibold">Jupyter Kube Launcher</h1>
+              <p className="text-sm text-muted-foreground">Kubernetes JupyterLab Environment Manager</p>
             </div>
           </div>
         </div>
@@ -52,11 +52,11 @@ export default function Home() {
       <section className="container mx-auto px-4 py-16">
         <div className="text-center max-w-4xl mx-auto">
           <h1 className="text-4xl md:text-6xl font-bold mb-6">
-            Deploy JupyterLab to NRP
+            Deploy JupyterLab to Kubernetes
           </h1>
           <p className="text-xl text-muted-foreground mb-8 max-w-2xl mx-auto">
-            A desktop application designed for the <strong>National Research Platform (NRP)</strong> Kubernetes cluster. 
-            Deploy and manage JupyterLab environments with NRP-optimized configuration.
+            A desktop application for <strong>any Kubernetes cluster</strong>.
+            Deploy and manage JupyterLab environments without writing a single manifest.
           </p>
           
           {/* Download Buttons */}
@@ -130,7 +130,7 @@ export default function Home() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">Features</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Built for the National Research Platform with configurations optimized for research computing workloads.
+              Built for Kubernetes, with configurations tuned for data science and research computing workloads.
             </p>
           </div>
 
@@ -143,13 +143,13 @@ export default function Home() {
                   <div className="p-2 bg-primary/10 rounded-lg">
                     <Container className="h-6 w-6 text-primary" />
                   </div>
-                  <CardTitle>NRP-Optimized</CardTitle>
+                  <CardTitle>Kubernetes-Native</CardTitle>
                 </div>
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Deploy JupyterLab directly to the National Research Platform with automated pod management 
-                  and resource allocation configured for NRP&apos;s infrastructure.
+                  Deploy JupyterLab directly to your cluster with automated pod management
+                  and CPU, memory, and GPU resource allocation.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -166,8 +166,8 @@ export default function Home() {
               </CardHeader>
               <CardContent>
                 <CardDescription>
-                  Automatically detects NRP kubeconfig, namespaces, and cluster settings. 
-                  Pre-configured for NRP&apos;s authentication and networking requirements.
+                  Automatically detects your kubeconfig, contexts, and namespaces.
+                  Supports OIDC exec authentication out of the box.
                 </CardDescription>
               </CardContent>
             </Card>
@@ -254,7 +254,7 @@ export default function Home() {
           <div className="text-center mb-12">
             <h2 className="text-3xl font-bold mb-4">How It Works</h2>
             <p className="text-muted-foreground max-w-2xl mx-auto">
-              Deploy JupyterLab to NRP in three steps
+              Deploy JupyterLab to your cluster in three steps
             </p>
           </div>
 
@@ -297,8 +297,8 @@ export default function Home() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl font-bold mb-4">Download</h2>
           <p className="text-muted-foreground mb-8 max-w-2xl mx-auto">
-            Download NRP Jupyter Launcher for your platform to deploy JupyterLab environments to the 
-            National Research Platform. <strong>Requires NRP cluster access.</strong>
+            Download Jupyter Kube Launcher for your platform to deploy JupyterLab environments to
+            your cluster. <strong>Requires access to a Kubernetes cluster.</strong>
           </p>
           
           <div className="grid sm:grid-cols-3 gap-4 max-w-2xl mx-auto">
@@ -364,14 +364,14 @@ export default function Home() {
           <div className="flex flex-col md:flex-row justify-between items-center gap-4">
             <div className="flex items-center gap-3">
               <Image
-                src="/nrp-jl-icon.svg"
-                alt="NRP Jupyter Launcher"
+                src="/jupyter-kube-icon.svg"
+                alt="Jupyter Kube Launcher"
                 width={24}
                 height={24}
                 className="rounded"
               />
               <span className="text-sm text-muted-foreground">
-                © 2025 NRP Jupyter Launcher. Built for the National Research Platform community.
+                © 2025 Jupyter Kube Launcher. Built for the Kubernetes and Jupyter community.
               </span>
             </div>
             <div className="flex items-center gap-4">

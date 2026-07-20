@@ -28,7 +28,9 @@
     "build:all": "npm run build:mac && npm run build:win && npm run build:linux",
     "clean": "rm -rf dist-electron && rm -rf dist && rm -rf release",
     "lint": "eslint . --ext ts,tsx --report-unused-disable-directives --max-warnings 0",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "overrides": {
     "yaml": "1.10.2"
@@ -75,12 +77,13 @@
     "vite": "^7.0.0",
     "vite-plugin-electron": "^0.15.5",
     "vite-plugin-electron-renderer": "^0.14.5",
+    "vitest": "^2.1.9",
     "wait-on": "^7.2.0"
   },
   "build": {
-    "appId": "com.nrp.jupyter-launcher",
-    "productName": "NRP Jupyter Launcher",
-    "copyright": "Copyright © 2025 Trevin Lee",
+    "appId": "com.jupyterkube.launcher",
+    "productName": "Jupyter Kube Launcher",
+    "copyright": "Copyright \u00a9 2025 Trevin Lee",
     "afterSign": "scripts/notarize.js",
     "directories": {
       "output": "release",
@@ -102,7 +105,7 @@
     },
     "mac": {
       "category": "public.app-category.developer-tools",
-      "icon": "assets/icons/nrp-jl-icon.png",
+      "icon": "assets/icons/jupyter-kube-icon.png",
       "hardenedRuntime": false,
       "gatekeeperAssess": false,
       "sign": false,
@@ -125,7 +128,7 @@
       ]
     },
     "win": {
-      "icon": "assets/icons/nrp-jl-icon.png",
+      "icon": "assets/icons/jupyter-kube-icon.png",
       "target": [
         {
           "target": "nsis",
@@ -142,7 +145,7 @@
       ]
     },
     "linux": {
-      "icon": "assets/icons/nrp-jl-icon.png",
+      "icon": "assets/icons/jupyter-kube-icon.png",
       "category": "Development",
       "maintainer": "Trevin Lee <trl008@ucsd.edu>",
       "vendor": "Trevin Lee",

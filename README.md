@@ -1,10 +1,10 @@
-# NRP Jupyter Launcher
+# Jupyter Kube Launcher
 
-A desktop application for deploying JupyterLab environments to the National Research Platform (NRP) Kubernetes cluster.
+A desktop application for deploying JupyterLab environments to Kubernetes clusters.
 
 ## Overview
 
-NRP Jupyter Launcher is an Electron-based desktop application that simplifies the deployment of JupyterLab environments to Kubernetes clusters. It features:
+Jupyter Kube Launcher is an Electron-based desktop application that simplifies the deployment of JupyterLab environments to Kubernetes clusters. It features:
 
 - 🚀 One-click deployment to Kubernetes
 - 🔧 Hardware configuration (CPU, Memory, GPU)
@@ -99,10 +99,10 @@ npm run build:all
 ```
 
 Built files will be in `app/release/`:
-- macOS: `NRP Jupyter Launcher-1.0.0-arm64.dmg` (Apple Silicon)
-- macOS: `NRP Jupyter Launcher-1.0.0.dmg` (Intel)
-- Windows: `NRP Jupyter Launcher Setup 1.0.0.exe`
-- Linux: `NRP Jupyter Launcher-1.0.0.AppImage`
+- macOS: `Jupyter Kube Launcher-1.0.0-arm64.dmg` (Apple Silicon)
+- macOS: `Jupyter Kube Launcher-1.0.0.dmg` (Intel)
+- Windows: `Jupyter Kube Launcher Setup 1.0.0.exe`
+- Linux: `Jupyter Kube Launcher-1.0.0.AppImage`
 - Linux: `jupyter-kube_1.0.0_amd64.deb`
 
 ## Deployment
@@ -143,9 +143,15 @@ The application automatically searches for these tools in common locations.
 - OIDC authentication support
 - Real-time pod status monitoring
 
+### Container Image
+- Bring your own image — no image is bundled, since it must be pullable from your cluster
+- `docker/` builds a compatible reference image you can host yourself
+- See [docker/README.md](docker/README.md) for the image requirements
+
 ### Hardware Configuration
 - CPU and memory allocation
-- GPU support (NVIDIA)
+- GPU support via any extended resource (`nvidia.com/gpu`, `amd.com/gpu`, ...)
+- Optional node-label targeting to pin a specific GPU model
 - Persistent volume claims
 
 ### Environment Management
@@ -162,7 +168,8 @@ The application automatically searches for these tools in common locations.
 
 ### For Users
 - macOS 10.15+, Windows 10+, or Ubuntu 18.04+
-- Access to NRP Kubernetes cluster
+- Access to a Kubernetes cluster, with a kubeconfig on your machine
+- A JupyterLab container image your cluster can pull (see [docker/README.md](docker/README.md))
 - kubectl installed (for OIDC authentication)
 
 ### For Development
@@ -173,11 +180,11 @@ The application automatically searches for these tools in common locations.
 ## Troubleshooting
 
 ### macOS Security Warning ("App is damaged")
-If you see **"NRP Jupyter Launcher.app" is damaged and can't be opened"** on macOS:
+If you see **"Jupyter Kube Launcher.app" is damaged and can't be opened"** on macOS:
 
 **Quick Fix Options:**
 1. Right-click the app and select "Open" (instead of double-clicking)
-2. Or run this Terminal command: `xattr -cr /Applications/NRP\ Jupyter\ Launcher.app`
+2. Or run this Terminal command: `xattr -cr /Applications/Jupyter\ Kube\ Launcher.app`
 
 This happens because the app isn't code-signed with an Apple Developer certificate. The app is safe - this is macOS Gatekeeper protecting you from unsigned apps.
 
@@ -202,5 +209,5 @@ MIT License - see LICENSE file for details
 
 ## Support
 
-For issues specific to the National Research Platform, please contact NRP support.
+For issues specific to your Kubernetes cluster (access, quotas, node labels), contact your cluster administrator.
 For application issues, please open a GitHub issue.

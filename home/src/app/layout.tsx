@@ -9,26 +9,26 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "NRP Jupyter Launcher - Deploy JupyterLab to National Research Platform",
-  description: "A desktop application designed for the National Research Platform (NRP) Kubernetes cluster. Deploy and manage JupyterLab environments with NRP-optimized configuration.",
-  keywords: ["JupyterLab", "National Research Platform", "NRP", "Research Computing", "Kubernetes", "Data Science", "Machine Learning", "Docker", "Conda", "Python"],
+  title: "Jupyter Kube Launcher - Deploy JupyterLab to Kubernetes",
+  description: "A desktop application for deploying JupyterLab environments to any Kubernetes cluster. Automatic kubeconfig detection, GPU support, Git integration, and custom conda environments.",
+  keywords: ["JupyterLab", "Kubernetes", "k8s", "Research Computing", "Data Science", "Machine Learning", "GPU", "Docker", "Conda", "Python"],
   authors: [{ name: "Trevin Lee" }],
   creator: "Trevin Lee",
   openGraph: {
-    title: "NRP Jupyter Launcher - Deploy JupyterLab to National Research Platform",
-    description: "Deploy JupyterLab environments to the National Research Platform. NRP-optimized configuration, Git integration, and custom environments.",
+    title: "Jupyter Kube Launcher - Deploy JupyterLab to Kubernetes",
+    description: "Deploy JupyterLab environments to any Kubernetes cluster. Automatic configuration, Git integration, and custom environments.",
     type: "website",
     locale: "en_US",
   },
   twitter: {
     card: "summary_large_image",
-    title: "NRP Jupyter Launcher - Deploy JupyterLab to National Research Platform",
-    description: "Deploy JupyterLab environments to the National Research Platform.",
+    title: "Jupyter Kube Launcher - Deploy JupyterLab to Kubernetes",
+    description: "Deploy JupyterLab environments to any Kubernetes cluster.",
   },
   icons: {
-    icon: "/nrp-jl-icon.svg",
-    shortcut: "/nrp-jl-icon.svg",
-    apple: "/nrp-jl-icon.svg",
+    icon: "/jupyter-kube-icon.svg",
+    shortcut: "/jupyter-kube-icon.svg",
+    apple: "/jupyter-kube-icon.svg",
   },
 };
 

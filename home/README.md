@@ -1,6 +1,6 @@
-# NRP Jupyter Launcher Website
+# Jupyter Kube Launcher Website
 
-This is the official website for the NRP Jupyter Launcher application, built with Next.js and deployed to Vercel.
+This is the official website for the Jupyter Kube Launcher application, built with Next.js and deployed to Vercel.
 
 ## Development
 
@@ -51,10 +51,10 @@ To release a new version of the application:
 ## File Naming Convention
 
 The built files follow this naming pattern:
-- macOS ARM: `NRP.Jupyter.Launcher-{version}-arm64.dmg`
-- macOS Intel: `NRP.Jupyter.Launcher-{version}.dmg`
-- Windows: `NRP.Jupyter.Launcher.Setup.{version}.exe`
-- Linux AppImage: `NRP.Jupyter.Launcher-{version}.AppImage`
+- macOS ARM: `Jupyter.Kube.Launcher-{version}-arm64.dmg`
+- macOS Intel: `Jupyter.Kube.Launcher-{version}.dmg`
+- Windows: `Jupyter.Kube.Launcher.Setup.{version}.exe`
+- Linux AppImage: `Jupyter.Kube.Launcher-{version}.AppImage`
 - Linux Deb: `jupyter-kube_{version}_amd64.deb`
 
 ## Environment Variables
@@ -71,25 +71,25 @@ No environment variables are required for the website. All configuration is done
 
 ## About
 
-NRP Jupyter Launcher provides:
-- **NRP-Optimized**: Deploy JupyterLab directly to the National Research Platform with tailored configurations
-- **Auto Configuration**: Automatically detects NRP kubeconfig and cluster settings
+Jupyter Kube Launcher provides:
+- **Kubernetes-Native**: Deploy JupyterLab directly to your Kubernetes cluster as a managed StatefulSet
+- **Auto Configuration**: Automatically detects your kubeconfig, contexts, and namespaces
 - **One-Click Deploy**: Launch fully configured environments in seconds
-- **Environment Management**: Custom conda environments and packages optimized for research computing
+- **Environment Management**: Custom conda environments and packages for data science and research computing
 - **Git Integration**: Seamless repository cloning and SSH key configuration
 - **Real-time Monitoring**: Live deployment progress and resource monitoring
 
-**⚠️ Important**: This tool is designed exclusively for the National Research Platform's Kubernetes cluster and will not work with other Kubernetes clusters.
+**⚠️ Requirements**: You need access to a Kubernetes cluster and a working kubeconfig. Clusters using OIDC exec authentication also require `kubectl` and the `kubectl-oidc_login` plugin.
 
 ## macOS Security Warning
 
-If you see **"NRP Jupyter Launcher.app" is damaged and can't be opened** on macOS:
+If you see **"Jupyter Kube Launcher.app" is damaged and can't be opened** on macOS:
 
 ### Quick Fix:
 1. **Option 1**: Right-click the app and select "Open" instead of double-clicking
 2. **Option 2**: Run this command in Terminal:
    ```bash
-   xattr -cr /Applications/NRP\ Jupyter\ Launcher.app
+   xattr -cr /Applications/Jupyter\ Kube\ Launcher.app
    ```
 
 This happens because the app isn't code-signed with an Apple Developer certificate. The app is safe to use - this is just macOS's security system (Gatekeeper) being cautious with unsigned apps.

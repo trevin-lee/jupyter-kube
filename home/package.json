@@ -1,7 +1,7 @@
 {
-  "name": "nrp-jupyter-launcher-website",
+  "name": "jupyter-kube-launcher-website",
   "version": "1.1.1",
-  "description": "Official website for NRP Jupyter Launcher - Deploy JupyterLab to Kubernetes",
+  "description": "Official website for Jupyter Kube Launcher - Deploy JupyterLab to Kubernetes",
   "private": true,
   "scripts": {
     "dev": "next dev",

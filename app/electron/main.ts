@@ -9,6 +9,7 @@ import { promises as fs } from 'fs';
 import { SSHKeyInfo } from '../src/types/app';
 import { CondaConfigManager } from './conda-config';
 import { PortForwardManager } from './portforward-manager';
+import { getJupyterToken } from './jupyter-auth';
 import { ElectronAppState } from '../src/types/app';
 import log from 'electron-log';
 
@@ -56,11 +57,44 @@ async function createWindow(): Promise<void> {
     }
   });
   
+  // Authenticate every request to the forwarded Jupyter port at the network layer.
+  // The embedded iframe cannot rely on cookies (SameSite blocks them in a
+  // cross-site iframe) and JS cannot set headers on WebSocket handshakes — but
+  // this hook can, and it applies to WS upgrades too. Jupyter accepts
+  // `Authorization: token <t>` everywhere, which is what makes kernels connect.
+  mainWindow.webContents.session.webRequest.onBeforeSendHeaders(
+    { urls: ['http://127.0.0.1:8888/*', 'http://localhost:8888/*', 'ws://127.0.0.1:8888/*', 'ws://localhost:8888/*'] },
+    (details, callback) => {
+      const token = getJupyterToken();
+      const requestHeaders = { ...details.requestHeaders };
+      if (token) {
+        requestHeaders['Authorization'] = `token ${token}`;
+      }
+      callback({ requestHeaders });
+    }
+  );
+
   // Set CSP to allow iframe loading from localhost
   mainWindow.webContents.session.webRequest.onHeadersReceived((details, callback) => {
+    const responseHeaders = { ...details.responseHeaders };
+
+    // Jupyter serves X-Frame-Options: SAMEORIGIN by default, which blocks our
+    // iframe (the app's origin is file://). Strip frame-blocking headers from the
+    // forwarded JupyterLab responses so it can embed; all other origins keep theirs.
+    if (/^https?:\/\/(localhost|127\.0\.0\.1):8888\//.test(details.url)) {
+      for (const key of Object.keys(responseHeaders)) {
+        const k = key.toLowerCase();
+        if (k === 'x-frame-options' || k === 'content-security-policy') {
+          delete responseHeaders[key];
+        }
+      }
+      callback({ responseHeaders });
+      return;
+    }
+
     callback({
       responseHeaders: {
-        ...details.responseHeaders,
+        ...responseHeaders,
         'Content-Security-Policy': [
           'frame-src http://localhost:8888 http://127.0.0.1:8888 \'self\';' +
           'connect-src * ws://localhost:* ws://127.0.0.1:* wss://localhost:* wss://127.0.0.1:*;' +

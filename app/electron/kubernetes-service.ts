@@ -9,6 +9,7 @@ import type { KubeConfig, CoreV1Api, AppsV1Api, Watch, PortForward } from '@kube
 
 import { getK8s } from './k8s-client';
 import { DEFAULT_NAMESPACE, LABELS, LABEL_VALUES, sshSecretName } from './constants';
+import { setJupyterToken } from './jupyter-auth';
 
 import { ManifestManager } from './manifest';
 import { logger } from './logging-service';
@@ -324,8 +325,8 @@ export class KubernetesService {
                         status.podName!,
                         this.kc!
                     );
-                    
-                    const jupyterUrl = `http://127.0.0.1:8888`;
+
+                    const jupyterUrl = await this.buildJupyterUrl(status.podName!);
                     this.sendProgress({ 
                         phase: 'ready', 
                         message: 'Connected to existing JupyterLab!', 
@@ -378,7 +379,7 @@ export class KubernetesService {
                 this.sendProgress({ 
                     phase: 'ready', 
                     message: 'Connected to existing JupyterLab!', 
-                    jupyterUrl: 'http://127.0.0.1:8888',
+                    jupyterUrl: 'http://127.0.0.1:8888/lab',
                     podName: this.deploymentName ? `${this.deploymentName}-0` : 'unknown',
                     podStatus: {
                         status: 'Running',
@@ -528,6 +529,39 @@ export class KubernetesService {
         await startWatching();
     }
 
+    /**
+     * Build the URL the renderer embeds in its iframe. Most images ship with
+     * Jupyter's token auth enabled; the token is only printed to the pod log, so
+     * read it from there and put it in the URL. Auth-disabled images (like the
+     * reference image in docker/) simply have no token line — plain /lab works.
+     */
+    private async buildJupyterUrl(podName: string): Promise<string> {
+        const base = 'http://127.0.0.1:8888/lab';
+        try {
+            // Fetch the FULL log, not a tail: the token is only printed at server
+            // startup, and a long-running server's chatter (each failed request is
+            // a log line) pushes it out of any fixed-size tail window.
+            const logText = await this.k8sApi.readNamespacedPodLog({
+                name: podName,
+                namespace: this.namespace!
+            });
+            const match = logText.match(/[?&]token=([a-zA-Z0-9]+)/);
+            if (match) {
+                logger.info('[KubernetesService] Found Jupyter auth token in pod log.');
+                // Let main.ts inject this as an Authorization header on every request
+                // to the forwarded port — WebSockets included, which cannot carry the
+                // token any other way from inside the iframe.
+                setJupyterToken(match[1]);
+                return `${base}?token=${match[1]}`;
+            }
+        } catch (error: any) {
+            logger.warn(`[KubernetesService] Could not read pod log for token: ${error?.message}`);
+        }
+        logger.info('[KubernetesService] No auth token found in pod log; assuming token auth is disabled.');
+        setJupyterToken(null);
+        return base;
+    }
+
     private async setupPortForward(podName: string): Promise<void> {
         this.sendProgress({ phase: 'setting-up-access', message: 'Setting up secure access to JupyterLab...', progress: 90 });
         if (!this.namespace) {
@@ -536,7 +570,7 @@ export class KubernetesService {
         }
         this.portForwardMgr = new PortForwardManager(this.kc!);
         await this.portForwardMgr.forward(this.namespace!, podName);
-        const jupyterUrl = `http://127.0.0.1:8888`;
+        const jupyterUrl = await this.buildJupyterUrl(podName);
         
         // Send complete information including pod details
         this.sendProgress({ 
